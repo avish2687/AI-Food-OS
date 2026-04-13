@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — AI Smart Food OS</title>
+    <meta name="description" content="Discover AI-powered food recommendations tuned to your mood, budget, and body.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/index.html" class="nav-logo" id="nav-logo">
+                <div class="logo-icon">🍴</div>
+                AI Food<span class="logo-accent">OS</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/index.html" id="nav-home" class="active">Home</a>
+                <a href="/menu.html" id="nav-menu">Menu</a>
+                <a href="/health.html" id="nav-health">Health</a>
+                <a href="/orders.html" id="nav-orders">Orders</a>
+                <a href="/profile.html" id="nav-profile">Profile</a>
+                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
+                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
+                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
+                        style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:0.9rem;">💳</span>
+                    <span id="nav-wallet-balance">–</span>
+                </button>
+                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
+                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- REACT MOUNT POINT -->
+    <main id="react-dashboard-root"></main>
+
+    <!-- GLOBAL SCRIPTS -->
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function logout() {
+            try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
+            window.location.href = '/signin.html';
+        }
+
+        async function loadNavInfo() {
+            try {
+                const r = await fetch(API_BASE + '/api/profile');
+                if (r.ok) {
+                    const data = await r.json();
+                    const bal = data.wallet_balance || 0;
+                    document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    if (data.subscription_tier === 'free') {
+                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
+                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile#pricing';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        
+        // Check for saved theme
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-mode');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            const mode = body.classList.contains('dark-mode') ? 'dark' : 'light';
+            localStorage.setItem('theme', mode);
+        });
+
+        document.addEventListener('DOMContentLoaded', loadNavInfo);
+    </script>
+
+    <!-- REACT DASHBOARD COMPONENT -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        function DashboardApp() {
+            const [foods, setFoods] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [walletBalance, setWalletBalance] = useState(0);
+            
+            // Filters
+            const [activeMood, setActiveMood] = useState('');
+            const [emergencyMode, setEmergencyMode] = useState(false);
+            const [aiInsight, setAiInsight] = useState('');
+
+            useEffect(() => {
+                fetchProfile();
+                fetchFoods();
+            }, [activeMood, emergencyMode]);
+
+            async function fetchProfile() {
+                try {
+                    const res = await fetch('http://localhost:8000/api/profile');
+                    if(res.ok) {
+                        const data = await res.json();
+                        setWalletBalance(data.wallet_balance || 0);
+                    }
+                } catch(e) { }
+            }
+
+            async function fetchFoods() {
+                setLoading(true);
+                try {
+                    let url = 'http://localhost:8000/api/recommend?';
+                    if (activeMood) url += `mood=${activeMood}&`;
+                    if (emergencyMode) url += `budget=80&`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    setFoods(data);
+
+                    if (emergencyMode) {
+                        setAiInsight("Survival mode active. Sourcing highest calorie-to-cost ratio meals.");
+                    } else if (activeMood === 'gym') {
+                        setAiInsight("Optimizing for Maximum Protein Synthesis");
+                    } else if (activeMood === 'tired') {
+                        setAiInsight("Selecting high-GI complex carbs for rapid ATP restoration");
+                    } else if (activeMood === 'stressed') {
+                        setAiInsight("Prioritizing comfort meals with brain-soothing amino acids");
+                    } else {
+                        setAiInsight("");
+                    }
+                } catch(e) {
+                    console.error("Error fetching foods", e);
+                }
+                setLoading(false);
+            }
+
+            const moods = [
+                { id: 'happy', emoji: '😊', label: 'Feel Good' },
+                { id: 'stressed', emoji: '😫', label: 'Stressed / Comfort' },
+                { id: 'tired', emoji: '🥱', label: 'Energy Boost' },
+                { id: 'gym', emoji: '💪', label: 'Post-Workout' },
+                { id: 'lazy', emoji: '🛋️', label: 'Lazy / Easy' },
+                { id: 'adventurous', emoji: '🌶️', label: 'Adventurous' }
+            ];
+
+            const stats = useMemo(() => {
+                if(!foods.length) return { totalFoods: 0, avgHealth: 0 };
+                return {
+                    totalFoods: foods.length,
+                    avgHealth: Math.round(foods.reduce((acc, f) => acc + (f.health_score || 0), 0) / foods.length)
+                };
+            }, [foods]);
+
+            function toggleEmergency() {
+                setEmergencyMode(!emergencyMode);
+                setActiveMood('');
+            }
+
+            // Colors for gradients
+            const getCategoryGradient = (cat) => {
+                if (cat === 'Healthy Meals') return 'linear-gradient(135deg, rgba(166,215,133,0.2) 0%, rgba(132,189,101,0.05) 100%)';
+                if (cat === 'Indian Meals') return 'linear-gradient(135deg, rgba(235,166,104,0.2) 0%, rgba(206,133,65,0.05) 100%)';
+                if (cat === 'Street Food') return 'linear-gradient(135deg, rgba(230,121,114,0.2) 0%, rgba(199,88,81,0.05) 100%)';
+                if (cat === 'Desserts') return 'linear-gradient(135deg, rgba(207,159,255,0.2) 0%, rgba(175,122,228,0.05) 100%)';
+                return 'linear-gradient(135deg, rgba(200,200,200,0.2) 0%, rgba(150,150,150,0.05) 100%)';
+            };
+
+            return (
+                <div>
+                    {/* HERO SECTION */}
+                    <section className="hero" id="hero-section">
+                        <div className="hero-ambient"></div>
+                        <div className="container" style={{position: 'relative', zIndex: 2, width: '100%'}}>
+                            <div className="hero-content">
+                                <div className="hero-tag">
+                                    <div className="hero-tag-dot"></div>
+                                    AI Intelligence System · Live
+                                </div>
+
+                                <h1 className="hero-title animate-up">
+                                    Think. <span className="accent">Eat.</span><br/>
+                                    <span className="accent-green">Thrive.</span>
+                                </h1>
+
+                                <p className="hero-subtitle animate-up-1">
+                                    The world's first AI food intelligence OS. Not just ordering — 
+                                    understanding <em>what, why &amp; how much</em> to eat based on your body, mood and budget.
+                                </p>
+
+                                <div className="hero-actions animate-up-2">
+                                    <button className="btn btn-primary btn-lg" onClick={() => location.href='/menu.html'}>
+                                        🍽️ Explore AI Menu
+                                    </button>
+                                </div>
+
+                                <div className="hero-stats animate-up-3">
+                                    <div>
+                                        <div className="hero-stat-val"><span>{stats.totalFoods}+</span></div>
+                                        <div className="hero-stat-label">Recommendations</div>
+                                    </div>
+                                    <div>
+                                        <div className="hero-stat-val"><span>97%</span></div>
+                                        <div className="hero-stat-label">Health Accuracy</div>
+                                    </div>
+                                    <div>
+                                        <div className="hero-stat-val"><span>{stats.avgHealth || '-'}</span></div>
+                                        <div className="hero-stat-label">Avg Health Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* HERO VISUAL SIDE */}
+                            <div className="hero-visual">
+                                <div className="hero-img-wrap">
+                                    <img src="/static/img/hero_indian_platter.png" alt="Indian Food Platter" className="hero-img" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div className="glow-divider"></div>
+
+                    {/* MOOD SELECTOR */}
+                    <section className="section-sm" id="mood-section">
+                        <div className="container">
+                            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '10px'}}>
+                                <div>
+                                    <span className="section-tag">Biological State Selector</span>
+                                    <h2 className="section-title" style={{fontSize: '1.5rem'}}>How are you feeling right now?</h2>
+                                </div>
+                                {activeMood && <div className="badge badge-ai">Showing: {activeMood} recommendations</div>}
+                            </div>
+
+                            <div className="mood-pills" id="mood-pills">
+                                {moods.map(mood => (
+                                    <button key={mood.id} className={`mood-pill ${activeMood === mood.id ? 'active' : ''}`}
+                                            onClick={() => setActiveMood(activeMood === mood.id ? '' : mood.id)}>
+                                        <span>{mood.emoji}</span>
+                                        <span>{mood.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* AI INSIGHT BANNER */}
+                    {aiInsight && (
+                        <div className="container" style={{marginBottom: '20px'}}>
+                            <div className="alert-ai">
+                                <span className="alert-ai-icon">🧠</span>
+                                <div>
+                                    <strong>AI Insight</strong>
+                                    <span style={{marginLeft: '6px'}}>{aiInsight}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FOOD RECOMMENDATIONS */}
+                    <section className="section" id="recommendations-section">
+                        <div className="container">
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '36px', flexWrap: 'wrap', gap: '16px'}}>
+                                <div>
+                                    <span className="section-tag">AI Recommended Fuel</span>
+                                    <h2 className="section-title">{activeMood ? `Optimized for ${activeMood} mood` : 'Popular Near You'}</h2>
+                                </div>
+                                <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                                    <button className="btn btn-danger btn-sm" onClick={toggleEmergency}>
+                                        {!emergencyMode ? '🆘 Emergency Mode' : '✕ Exit Emergency'}
+                                    </button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => location.href='/menu'}>
+                                        See All Menu →
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* EMERGENCY BANNER */}
+                            {emergencyMode && (
+                                <div className="emergency-banner" style={{marginBottom: '32px'}}>
+                                    <div className="emergency-icon">🆘</div>
+                                    <div>
+                                        <div style={{fontWeight: 700, color: 'var(--error)'}}>Emergency Survival Mode Active</div>
+                                        <div style={{fontSize: '0.85rem', color: 'var(--on-surface-dim)'}}>Showing only meals under ₹80 — optimized for your critical balance.</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* LOADING SKELETON */}
+                            {loading && (
+                                <div className="grid-auto">
+                                    {[...Array(6)].map((_, i) => (
+                                        <div key={i} className="food-card" style={{cursor: 'default'}}>
+                                            <div className="food-card-img skeleton"></div>
+                                            <div className="food-card-body">
+                                                <div className="skeleton" style={{height:'20px', borderRadius:'6px', width:'70%'}}></div>
+                                                <div className="skeleton" style={{height:'14px', borderRadius:'6px', width:'40%', marginTop:'8px'}}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* FOOD GRID */}
+                            {!loading && (
+                                <div className="grid-auto">
+                                    {foods.map(food => (
+                                        <div key={food.id} className="food-card">
+                                            <div className="food-card-img" style={food.image_url ? {
+                                                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 100%), url(${food.image_url})`,
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center',
+                                                height: '180px',
+                                                position: 'relative'
+                                            } : {
+                                                background: getCategoryGradient(food.category),
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                height: '180px',
+                                                position: 'relative'
+                                            }}>
+                                                {food.health_score >= 80 && (
+                                                    <div className="food-badge" style={{position:'absolute', top:'12px', left:'12px', background:'rgba(255,255,255,0.9)', color:'#000', borderRadius:'50px', padding:'4px 10px', fontSize:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', gap:'4px', border:'1px solid rgba(0,0,0,0.1)', zIndex: 10}}>
+                                                        ✨ AI Pick
+                                                    </div>
+                                                )}
+                                                {!food.image_url && (
+                                                    <div className="food-icon" style={{fontSize: '4rem', zIndex: 1}}>{food.image_emoji}</div>
+                                                )}
+                                                <div className={`diet-indicator ${food.is_veg ? 'veg' : 'non-veg'}`} style={{position:'absolute', top:'12px', right:'12px', zIndex: 10}}></div>
+                                            </div>
+                                            
+                                            <div className="food-card-body">
+                                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px'}}>
+                                                    <div className="food-title">{food.name}</div>
+                                                    <div className="food-price">₹{food.price}</div>
+                                                </div>
+
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px'}}>
+                                                    <div className="health-ring-wrap">
+                                                        <div className={`health-ring ${food.health_score >= 70 ? 'score-high' : food.health_score >= 40 ? 'score-med' : 'score-low'}`}
+                                                             style={{'--pct': `${food.health_score * 3.6}deg`}}>
+                                                            <span>{food.health_score}</span>
+                                                        </div>
+                                                        <div>
+                                                            <div style={{fontSize: '0.65rem', color: 'var(--on-surface-dim)', textTransform: 'uppercase', letterSpacing: '0.08em'}}>Health</div>
+                                                            <div style={{fontSize: '0.75rem', fontWeight: 700, color: food.health_score >= 70 ? 'var(--secondary)' : food.health_score >= 40 ? '#FFD700' : 'var(--error)'}}>
+                                                                {food.health_score >= 70 ? 'Excellent' : food.health_score >= 40 ? 'Moderate' : 'Caution'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {food.true_cost > 0 && (
+                                                        <div style={{marginLeft: 'auto', textAlign: 'right'}}>
+                                                            <div style={{fontSize: '0.65rem', color: 'var(--on-surface-dim)', textTransform: 'uppercase', letterSpacing: '0.08em'}}>Cost To Create</div>
+                                                            <div style={{fontSize: '0.8rem', fontWeight: 600, color: 'var(--on-surface-dim)'}}>~₹{food.true_cost}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            )
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('react-dashboard-root'));
+        root.render(<DashboardApp />);
+    </script>
+    <!-- AI CHATBOT -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+supabase
+jinja2
+python-multipart
+requests
+pydantic
+openai

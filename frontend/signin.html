@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — AI Smart Food OS</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Style -->
+    <link rel="stylesheet" href="/static/css/auth_style.css">
+</head>
+<body>
+
+    <div class="auth-container">
+        <!-- Left Visual Side -->
+        <div class="auth-visual">
+            <a href="/landing.html" class="back-link">
+                <i class="fa-solid fa-chevron-left"></i> BACK TO THE WEBSITE
+            </a>
+        </div>
+
+        <!-- Right Form Side -->
+        <div class="auth-content">
+            <div class="auth-form-wrapper">
+                <div class="auth-header">
+                    <h1>Welcome!</h1>
+                    <p>Experience the future of food.</p>
+                </div>
+
+                <div id="status-message" style="margin-bottom: 20px; font-size: 0.9rem; border-radius: 8px; transition: all 0.3s; height: 0; overflow: hidden;"></div>
+
+                <form id="auth-form">
+                    <div class="form-group">
+                        <div class="input-row-inline">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                            <input type="tel" id="phone-input" class="auth-input" placeholder="Phone Number" 
+                                   onfocus="if(this.value==='') this.value='+91'" required>
+                            <button type="button" id="send-otp-btn" class="btn-inline">SEND OTP</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="text" id="otp-input" class="auth-input" placeholder="Verification Code (OTP)">
+                    </div>
+
+                    <label class="remember-me">
+                        <input type="checkbox"> Remember my login
+                    </label>
+
+                    <button type="submit" id="submit-btn" class="auth-btn">LOGIN</button>
+                </form>
+
+                <p style="text-align: center; margin-top: 32px; color: var(--auth-text-sub); font-size: 0.9rem;">
+                    Don't have an account? <a href="/signup.html" style="color: var(--auth-primary); font-weight: 700; text-decoration: none;">Sign Up</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const phoneInput = document.getElementById('phone-input');
+        const otpInput = document.getElementById('otp-input');
+        const sendOtpBtn = document.getElementById('send-otp-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusMsg = document.getElementById('status-message');
+        const authForm = document.getElementById('auth-form');
+
+        function showStatus(text, type) {
+            statusMsg.textContent = text;
+            statusMsg.style.height = 'auto';
+            statusMsg.style.padding = '12px 16px';
+            statusMsg.style.marginBottom = '20px';
+            statusMsg.style.background = type === 'error' ? 'rgba(255,113,108,0.1)' : 'rgba(107,254,156,0.1)';
+            statusMsg.style.color = type === 'error' ? '#ff716c' : '#6bfe9c';
+            statusMsg.style.border = `1px solid ${type === 'error' ? 'rgba(255,113,108,0.3)' : 'rgba(107,254,156,0.3)'}`;
+        }
+
+        sendOtpBtn.addEventListener('click', async () => {
+            const phone = phoneInput.value.trim();
+            if (!phone || phone === '+91') {
+                showStatus("Please enter a valid phone number", "error");
+                return;
+            }
+
+            sendOtpBtn.disabled = true;
+            sendOtpBtn.textContent = "SENDING...";
+            
+            try {
+                const res = await fetch('http://localhost:8000/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to send OTP');
+                showStatus("Code sent! Check your messages.", "success");
+                sendOtpBtn.textContent = "RESEND";
+            } catch (err) {
+                showStatus(err.message, "error");
+                sendOtpBtn.textContent = "SEND OTP";
+            } finally {
+                sendOtpBtn.disabled = false;
+            }
+        });
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = phoneInput.value.trim();
+            const otp = otpInput.value.trim();
+
+            if (!otp) {
+                showStatus("Please enter the OTP sent to your phone", "error");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "VERIFYING...";
+            
+            try {
+                const res = await fetch('http://localhost:8000/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, token: otp })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Verification failed');
+                
+                showStatus("Access Granted! Syncing...", "success");
+                localStorage.setItem('user_phone', phone);
+                
+                setTimeout(() => {
+                    window.location.href = '/index.html';
+                }, 1200);
+            } catch (err) {
+                showStatus(err.message, "error");
+                submitBtn.textContent = "LOGIN";
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

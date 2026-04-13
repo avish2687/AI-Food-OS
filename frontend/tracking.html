@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking — AI Smart Food OS</title>
+    <meta name="description" content="Track your food delivery in real-time with AI insights.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/index.html" class="nav-logo" id="nav-logo">
+                <div class="logo-icon">🍴</div>
+                AI Food<span class="logo-accent">OS</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/index.html" id="nav-home">Home</a>
+                <a href="/menu.html" id="nav-menu">Menu</a>
+                <a href="/health.html" id="nav-health">Health</a>
+                <a href="/orders.html" id="nav-orders">Orders</a>
+                <a href="/profile.html" id="nav-profile">Profile</a>
+                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
+                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
+                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
+                        style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:0.9rem;">💳</span>
+                    <span id="nav-wallet-balance">–</span>
+                </button>
+                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
+                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- REACT MOUNT POINT -->
+    <main id="react-tracking-root"></main>
+
+    <!-- GLOBAL SCRIPTS -->
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        async function logout() {
+            try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
+            window.location.href = '/signin.html';
+        }
+
+        async function loadNavInfo() {
+            try {
+                const r = await fetch(API_BASE + '/api/profile');
+                if (r.ok) {
+                    const data = await r.json();
+                    document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(data.wallet_balance || 0).toFixed(0);
+                }
+            } catch(e) {}
+        }
+        
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        if (localStorage.getItem('theme') === 'dark') body.classList.add('dark-mode');
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        document.addEventListener('DOMContentLoaded', loadNavInfo);
+    </script>
+
+    <!-- REACT TRACKING COMPONENT -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function TrackingApp() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const orderId = urlParams.get('id') || 'TRK' + Math.floor(100000 + Math.random() * 900000);
+            
+            const [status, setStatus] = useState('Order Placed');
+            const [step, setStep] = useState(0);
+            const [eta, setEta] = useState('23 mins');
+            const [rider, setRider] = useState('Rohan Kumar');
+
+            const steps = [
+                { label: 'Order Placed', time: 'Just now' },
+                { label: 'Preparing', time: 'Est. 5 mins' },
+                { label: 'On the Way', time: 'Est. 15 mins' },
+                { label: 'Delivered', time: 'Hooray!' }
+            ];
+
+            useEffect(() => {
+                const timers = [
+                    setTimeout(() => { setStep(1); setStatus('Chef is cooking'); setEta('18 mins'); }, 4000),
+                    setTimeout(() => { setStep(2); setStatus('Rider picked up'); setEta('8 mins'); }, 12000),
+                    setTimeout(() => { setStep(3); setStatus('Arrived!'); setEta('0 mins'); }, 25000)
+                ];
+                return () => timers.forEach(clearTimeout);
+            }, []);
+
+            return (
+                <div>
+                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '28px 0'}}>
+                        <div className="container">
+                            <span className="section-tag">Live Order Tracking</span>
+                            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'}}>
+                                <h1 className="section-title" style={{fontSize: '1.8rem'}}>Order <span style={{color: 'var(--primary)'}}>#{orderId}</span></h1>
+                                <div className="badge badge-ai">Status: {status}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="container section-sm">
+                        <div style={{display: 'grid', gridTemplateColumns: '1fr 360px', gap: '32px'}}>
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '24px'}}>📍 Delivery Progress</h3>
+                                    <div style={{position: 'relative', paddingLeft: '32px'}}>
+                                        <div style={{position: 'absolute', left: '10px', top: '12px', bottom: '12px', width: '2px', background: 'var(--surface-highest)'}}></div>
+                                        <div style={{position: 'absolute', left: '10px', top: '12px', width: '2px', background: 'var(--secondary)', height: `${(step/3)*100}%`, transition: 'height 1s ease'}}></div>
+                                        
+                                        {steps.map((s, idx) => (
+                                            <div key={idx} style={{display: 'flex', gap: '16px', marginBottom: '28px', opacity: idx <= step ? 1 : 0.4}}>
+                                                <div style={{position: 'absolute', left: '-28px', width: '20px', height: '20px', borderRadius: '50%', background: idx <= step ? 'var(--secondary)' : 'var(--surface-highest)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 1}}>
+                                                    {idx <= step ? '✓' : idx + 1}
+                                                </div>
+                                                <div>
+                                                    <div style={{fontWeight: 700}}>{s.label}</div>
+                                                    <div style={{fontSize: '0.8rem', color: 'var(--on-surface-dim)'}}>{s.time}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="card" style={{height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-high)'}}>
+                                    <div style={{textAlign:'center'}}>
+                                        <div style={{fontSize: '3rem', marginBottom: '10px'}}>🛵</div>
+                                        <div style={{fontWeight: 700}}>{rider} is nearby</div>
+                                        <div style={{color:'var(--primary)'}}>Arriving in {eta}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                                <div className="card" style={{textAlign: 'center', background: 'rgba(255,144,106,0.1)'}}>
+                                    <div style={{fontSize: '0.8rem', color: 'var(--on-surface-dim)'}}>Estimated Time</div>
+                                    <div style={{fontSize: '3rem', fontWeight: 700, color: 'var(--primary)'}}>{eta}</div>
+                                </div>
+                                <div className="card">
+                                    <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                                        <div style={{width: '48px', height: '48px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>🧑</div>
+                                        <div>
+                                            <div style={{fontWeight: 700}}>{rider}</div>
+                                            <div style={{fontSize: '0.8rem', color: 'var(--on-surface-dim)'}}>Reliable Partner</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button className="btn btn-ghost" onClick={() => location.href='/index.html'}>← Back to Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('react-tracking-root'));
+        root.render(<TrackingApp />);
+    </script>
+    
+    <!-- AI CHATBOT -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout — AI Smart Food OS</title>
+    <meta name="description" content="Secure Checkout for AI Smart Food OS.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Leaflet for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Razorpay Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/index.html" class="nav-logo" id="nav-logo">
+                <div class="logo-icon">🍴</div>
+                AI Food<span class="logo-accent">OS</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/index.html" id="nav-home">Home</a>
+                <a href="/menu.html" id="nav-menu">Menu</a>
+                <a href="/health.html" id="nav-health">Health</a>
+                <a href="/orders.html" id="nav-orders">Orders</a>
+                <a href="/profile.html" id="nav-profile">Profile</a>
+                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
+                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
+                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
+                        style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:0.9rem;">💳</span>
+                    <span id="nav-wallet-balance">–</span>
+                </button>
+                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
+                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- REACT MOUNT POINT -->
+    <main id="react-checkout-root"></main>
+
+    <!-- GLOBAL SCRIPTS -->
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function logout() {
+            try {
+                await fetch(API_BASE + '/api/auth/signout', { method: 'POST' });
+            } catch(e) {}
+            window.location.href = '/signin.html';
+        }
+
+        async function loadNavInfo() {
+            try {
+                const r = await fetch(API_BASE + '/api/profile');
+                if (r.ok) {
+                    const data = await r.json();
+                    const bal = data.wallet_balance || 0;
+                    document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    if (data.subscription_tier === 'free') {
+                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
+                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        if (localStorage.getItem('theme') === 'dark') body.classList.add('dark-mode');
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        document.addEventListener('DOMContentLoaded', loadNavInfo);
+    </script>
+
+    <!-- REACT CHECKOUT COMPONENT -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Map Component using Leaflet
+        function MapView({ lat, lng, onMove }) {
+            const mapRef = useRef(null);
+            const markerRef = useRef(null);
+            const [mapLoaded, setMapLoaded] = useState(false);
+
+            useEffect(() => {
+                if (!mapRef.current || mapLoaded) return;
+                
+                const map = L.map(mapRef.current).setView([lat, lng], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+
+                markerRef.current = L.marker([lat, lng], { draggable: true }).addTo(map);
+                
+                markerRef.current.on('dragend', function(e) {
+                    const pos = e.target.getLatLng();
+                    onMove(pos.lat, pos.lng);
+                });
+
+                map.on('click', function(e) {
+                    markerRef.current.setLatLng(e.latlng);
+                    onMove(e.latlng.lat, e.latlng.lng);
+                });
+
+                setMapLoaded(true);
+
+                return () => map.remove();
+            }, []);
+
+            useEffect(() => {
+                if (markerRef.current && mapLoaded) {
+                    markerRef.current.setLatLng([lat, lng]);
+                }
+            }, [lat, lng, mapLoaded]);
+
+            return (
+                <div style={{height: '280px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--outline-variant)'}}>
+                    <div ref={mapRef} style={{height: '100%', width: '100%'}} />
+                </div>
+            );
+        }
+
+        function CheckoutApp() {
+            const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('cart') || '[]'));
+            const [selectedPayment, setSelectedPayment] = useState('upi');
+            const [upiId, setUpiId] = useState('');
+            const [coupon, setCoupon] = useState('');
+            const [orderMood, setOrderMood] = useState('happy');
+            const [placing, setPlacing] = useState(false);
+            const [walletBalance, setWalletBalance] = useState(0);
+            
+            // Step State: 1 (Review), 2 (Address/Map), 3 (Payment)
+            const [step, setStep] = useState(1);
+            const [address, setAddress] = useState({
+                house: '',
+                street: '',
+                area: '',
+                lat: 19.0760, // Default to Mumbai
+                lng: 72.8777
+            });
+
+            useEffect(() => {
+                fetchProfile();
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('cart', JSON.stringify(cart));
+            }, [cart]);
+
+            async function fetchProfile() {
+                try {
+                    const res = await fetch('http://localhost:8000/api/profile');
+                    if(res.ok) {
+                        const data = await res.json();
+                        setWalletBalance(data.wallet_balance || 0);
+                    }
+                } catch(e) { }
+            }
+
+            const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+            const gst = Math.round(cartTotal * 0.05);
+            const grandTotal = cartTotal + gst;
+
+            const totalCalories = cart.reduce((acc, item) => acc + ((item.calories || 0) * item.qty), 0);
+            const totalProtein = Math.round(cart.reduce((acc, item) => acc + ((item.protein_g || 0) * item.qty), 0));
+            const totalFat = Math.round(cart.reduce((acc, item) => acc + ((item.fat_g || 0) * item.qty), 0));
+            
+            const avgHealth = cart.length ? Math.round(cart.reduce((acc, item) => acc + (item.health_score || 50), 0) / cart.length) : 0;
+
+            const aiTip = avgHealth >= 70 ? '🧠 Great order! This meal aligns well with your health goals.' :
+                          avgHealth >= 40 ? '⚡ Moderate order. Consider swapping one item for a healthier pick.' :
+                          '⚠️ High-calorie order detected. Balance it with light activity today.';
+
+            const paymentMethods = [
+                { id: 'upi', icon: '📱', name: 'UPI', desc: 'GPay, PhonePe, Paytm, BHIM', badge: 'Recommended' },
+                { id: 'card', icon: '💳', name: 'Credit / Debit Card', desc: 'Visa, Mastercard, RuPay — Tokenized', badge: null },
+                { id: 'wallet', icon: '🪙', name: 'Food Wallet', desc: 'Instant debit from wallet balance', badge: null },
+                { id: 'cod', icon: '💵', name: 'Cash on Delivery', desc: 'Max ₹500 — select areas only', badge: null },
+            ];
+
+            const moods = [
+                { id: 'happy', label: 'Happy', emoji: '😊' },
+                { id: 'stressed', label: 'Stressed', emoji: '😫' },
+                { id: 'tired', label: 'Tired', emoji: '😴' },
+                { id: 'gym', label: 'Post-Gym', emoji: '🏋️' }
+            ];
+
+            function incQty(idx) {
+                const newCart = [...cart];
+                newCart[idx].qty++;
+                setCart(newCart);
+                localStorage.setItem('cart', JSON.stringify(newCart));
+            }
+
+            function decQty(idx) {
+                const newCart = [...cart];
+                if (newCart[idx].qty > 1) {
+                    newCart[idx].qty--;
+                    setCart(newCart);
+                } else {
+                    removeItem(idx);
+                }
+                localStorage.setItem('cart', JSON.stringify(newCart));
+            }
+
+            function removeItem(idx) {
+                const newCart = [...cart];
+                newCart.splice(idx, 1);
+                setCart(newCart);
+                localStorage.setItem('cart', JSON.stringify(newCart));
+            }
+
+            function applyCoupon() {
+                alert('Coupon ' + coupon + ': Feature coming in Phase 2!');
+            }
+
+            async function finalizeOrder(orderId, paymentId) {
+                localStorage.removeItem('cart');
+                window.location.href = `/tracking.html?id=TRK${Math.floor(Math.random() * 900000) + 100000}`;
+            }
+
+            async function placeOrder() {
+                if (!cart.length) return;
+                setPlacing(true);
+                
+                try {
+                    const orderPayload = {
+                        items: cart.map(i => ({ food_id: i.id, qty: i.qty })),
+                        total_amount: grandTotal,
+                        payment_method: selectedPayment,
+                        mood: orderMood,
+                        delivery_address: `${address.house}, ${address.street}`,
+                        lat: address.lat,
+                        lng: address.lng
+                    };
+
+                    if (selectedPayment === 'upi' || selectedPayment === 'card') {
+                        const rz_res = await fetch('http://localhost:8000/api/razorpay/create_order', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ amount: grandTotal, receipt: 'rcptid_' + Date.now() })
+                        });
+                        const rz_data = await rz_res.json();
+                        
+                        if (rz_data.is_simulated) {
+                            console.log("Simulating Razorpay Payment...", rz_data);
+                            await new Promise(r => setTimeout(r, 1000));
+                            // Save order in backend too
+                            await fetch('http://localhost:8000/api/order', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(orderPayload)
+                            });
+                            await finalizeOrder(rz_data.id, "simulated_pay_" + Date.now());
+                            return;
+                        }
+
+                        const options = {
+                            "key": rz_data.key || "",
+                            "amount": rz_data.amount,
+                            "currency": "INR",
+                            "name": "AI Smart Food OS",
+                            "description": "Your perfect meal order",
+                            "order_id": rz_data.id,
+                            "handler": async function (response) {
+                                await fetch('http://localhost:8000/api/order', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({...orderPayload, razor_payment_id: response.razorpay_payment_id})
+                                });
+                                await finalizeOrder(rz_data.id, response.razorpay_payment_id);
+                            },
+                            "prefill": { "name": "Food OS User" },
+                            "theme": { "color": "#ff4500" }
+                        };
+                        
+                        const rzp1 = new Razorpay(options);
+                        rzp1.open();
+                        
+                    } else {
+                        // Regular Order (Wallet/COD)
+                        const res = await fetch('http://localhost:8000/api/order', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(orderPayload)
+                        });
+                        if (res.ok) {
+                            await finalizeOrder(null, "method_" + selectedPayment);
+                        } else {
+                            const err = await res.json();
+                            alert(err.detail || "Order failed");
+                            setPlacing(false);
+                        }
+                    }
+                } catch(e) {
+                    alert('Network error. Please try again.');
+                    setPlacing(false);
+                }
+            }
+
+            if(cart.length === 0) {
+                return (
+                    <div>
+                        <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '28px 0'}}>
+                            <div className="container">
+                                <span className="section-tag">Secure Checkout</span>
+                                <h1 className="section-title" style={{fontSize: '1.8rem'}}>Review & <span style={{color: 'var(--primary)'}}>Pay</span></h1>
+                            </div>
+                        </div>
+                        <div className="container section-sm">
+                            <div style={{textAlign:'center', padding: '100px 20px', color: 'var(--on-surface-dim)'}}>
+                                <div style={{fontSize: '4rem', marginBottom: '20px'}}>🛒</div>
+                                <h2 style={{fontSize: '1.4rem', marginBottom: '12px'}}>Your cart is empty</h2>
+                                <p style={{marginBottom: '24px'}}>Add some delicious items from the menu!</p>
+                                <button className="btn btn-primary" onClick={() => location.href='/menu.html'}>Browse Menu →</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    {/* PAGE HEADER WITH STEP INDICATOR */}
+                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '28px 0'}}>
+                        <div className="container">
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                <div>
+                                    <span className="section-tag">Secure Checkout</span>
+                                    <h1 className="section-title" style={{fontSize: '1.8rem'}}>
+                                        {step === 1 ? 'Review Order' : step === 2 ? 'Delivery Details' : 'Payment'}
+                                    </h1>
+                                </div>
+                                {/* Progress Tracker */}
+                                <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                                    {[1, 2, 3].map(s => (
+                                        <div key={s} style={{
+                                            width: '32px', height: '32px', borderRadius: '50%', border: `2px solid ${step >= s ? 'var(--primary)' : 'var(--outline-variant)'}`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: step === s ? 'var(--primary)' : 'transparent',
+                                            color: step === s ? 'white' : 'var(--on-surface-dim)',
+                                            fontWeight: 700, fontSize: '0.8rem'
+                                        }}>{s}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="container section-sm">
+                        <div style={{display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start'}}>
+                            
+                            {/* LEFT COLUMN: CHANGES BASED ON STEP */}
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                                
+                                {step === 1 && (
+                                    <div className="card">
+                                        <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>🛒 Items Summary</h3>
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                                            {cart.map((item, idx) => (
+                                                <div key={item.id} style={{display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', background: 'var(--surface-high)', borderRadius: 'var(--radius-lg)'}}>
+                                                    <div style={{fontSize: '2.2rem', width: '56px', height: '56px', background: 'var(--surface-highest)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>
+                                                        {item.image_emoji || '🍽️'}
+                                                    </div>
+                                                    <div style={{flex: 1, minWidth: 0}}>
+                                                        <div style={{fontWeight: 700, fontSize: '0.95rem'}}>{item.name}</div>
+                                                        <div style={{display: 'flex', gap: '6px', marginTop: '4px'}}>
+                                                            <span className="macro-pill calories">{item.calories} kcal</span>
+                                                            <span className="macro-pill protein">{item.protein_g}g P</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                                        <button onClick={() => decQty(idx)} className="btn-qty">-</button>
+                                                        <span style={{fontWeight:700}}>{item.qty}</span>
+                                                        <button onClick={() => incQty(idx)} className="btn-qty">+</button>
+                                                        <div style={{fontWeight:700,color:'var(--primary)', minWidth:'60px', textAlign:'right'}}>₹{item.price * item.qty}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* HEALTH SUMMARY OF CART */}
+                                        <div style={{marginTop: '20px', padding: '16px', background: 'var(--surface-high)', borderRadius: 'var(--radius-lg)'}}>
+                                            <div className="form-label" style={{marginBottom: '12px'}}>🧬 Order Health Summary</div>
+                                            <div style={{display: 'flex', gap: '20px', flexWrap: 'wrap'}}>
+                                                <div><div style={{fontSize: '0.7rem', color: 'var(--on-surface-dim)'}}>Total Calories</div><div style={{fontWeight: 700, color: 'var(--primary)'}}>{totalCalories} kcal</div></div>
+                                                <div><div style={{fontSize: '0.7rem', color: 'var(--on-surface-dim)'}}>Protein</div><div style={{fontWeight: 700, color: 'var(--secondary)'}}>{totalProtein}g</div></div>
+                                                <div><div style={{fontSize: '0.7rem', color: 'var(--on-surface-dim)'}}>Avg Health Score</div>
+                                                    <div style={{fontWeight: 700, color: avgHealth >= 70 ? 'var(--secondary)' : '#FFD700'}}>{avgHealth}/100</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button className="btn btn-primary" style={{marginTop: '24px', width: '100%', height:'52px'}} onClick={() => setStep(2)}>Confirm Items & Continue →</button>
+                                    </div>
+                                )}
+
+                                {step === 2 && (
+                                    <div className="card">
+                                        <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '16px'}}>📍 Delivery Location</h3>
+                                        <div className="form-group">
+                                            <label className="form-label">House / Flat No.</label>
+                                            <input className="form-input" value={address.house} onChange={e => setAddress({...address, house: e.target.value})} placeholder="e.g. Flat 402, Skyline Towers" />
+                                        </div>
+                                        <div className="form-group" style={{marginTop:'12px'}}>
+                                            <label className="form-label">Street / Area</label>
+                                            <input className="form-input" value={address.street} onChange={e => setAddress({...address, street: e.target.value})} placeholder="e.g. Pali Hill, Bandra West" />
+                                        </div>
+                                        <div className="form-label" style={{marginTop: '16px'}}>Pin precise location on Map</div>
+                                        <MapView lat={address.lat} lng={address.lng} onMove={(lat, lng) => setAddress({...address, lat, lng})} />
+                                        
+                                        <div style={{display: 'flex', gap: '12px', marginTop: '24px'}}>
+                                            <button className="btn btn-ghost" style={{flex: 1}} onClick={() => setStep(1)}>← Back</button>
+                                            <button className="btn btn-primary" style={{flex: 2, height:'52px'}} onClick={() => {
+                                                if(!address.house || !address.street) return alert('Please enter delivery address');
+                                                setStep(3);
+                                            }}>Confirm Address & Pay →</button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {step === 3 && (
+                                    <div className="card">
+                                        <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>💳 Secure Payment</h3>
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                                            {paymentMethods.map(pm => (
+                                                <label key={pm.id} 
+                                                       style={{display:'flex', alignItems:'center', gap:'12px', padding:'16px', background:'var(--surface-high)', borderRadius:'var(--radius-lg)', cursor:'pointer', border: selectedPayment === pm.id ? '2px solid var(--primary)' : '2px solid transparent'}}>
+                                                    <input type="radio" name="payment" value={pm.id} checked={selectedPayment === pm.id} onChange={e => setSelectedPayment(e.target.value)} />
+                                                    <div style={{fontSize: '1.4rem'}}>{pm.icon}</div>
+                                                    <div style={{flex: 1}}>
+                                                        <div style={{fontWeight: 700, fontSize: '0.9rem'}}>{pm.name}</div>
+                                                        <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>{pm.desc}</div>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+
+                                        <div className="alert-ai" style={{marginTop: '20px'}}>
+                                            <span className="alert-ai-icon">🚚</span>
+                                            <div>
+                                                <div style={{fontWeight: 600, fontSize:'0.85rem'}}>Delivery to:</div>
+                                                <div style={{fontSize:'0.75rem', color:'var(--on-surface-dim)'}}>{address.house}, {address.street}</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{display: 'flex', gap: '12px', marginTop: '24px'}}>
+                                            <button className="btn btn-ghost" style={{flex: 1}} onClick={() => setStep(2)}>← Back</button>
+                                            <button className="btn btn-primary" style={{flex: 2, height:'52px'}} onClick={placeOrder} disabled={placing}>
+                                                {placing ? 'Processing...' : `Pay ₹${grandTotal} Now`}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* RIGHT: ORDER SUMMARY (ALWAYS VISIBLE) */}
+                            <div className="card" style={{position: 'sticky', top: '90px'}}>
+                                <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>📊 Order Summary</h3>
+
+                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px'}}>
+                                    {cart.map(item => (
+                                        <div key={item.id} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem'}}>
+                                            <span style={{color: 'var(--on-surface-dim)'}}>{item.name} ×{item.qty}</span>
+                                            <span>₹{item.price * item.qty}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={{borderTop: '1px solid var(--outline-variant)', paddingTop: '14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.875rem',color:'var(--on-surface-dim)'}}>
+                                        <span>Subtotal</span><span>₹{cartTotal}</span>
+                                    </div>
+                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.875rem',color:'var(--secondary)'}}>
+                                        <span>🎉 Delivery</span><span>FREE</span>
+                                    </div>
+                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.875rem',color:'var(--on-surface-dim)'}}>
+                                        <span>GSTIN (5%)</span><span>₹{gst}</span>
+                                    </div>
+                                </div>
+
+                                <div style={{display:'flex',justifyContent:'space-between',fontFamily:'var(--font-display)',fontSize:'1.3rem',fontWeight:700,marginBottom:'24px',paddingTop:'14px',borderTop:'1px solid var(--outline-variant)'}}>
+                                    <span>Total</span>
+                                    <span style={{color: 'var(--primary)'}}>₹{grandTotal}</span>
+                                </div>
+
+                                {aiTip && (
+                                    <div className="alert-ai" style={{marginBottom: '20px', fontSize: '0.82rem'}}>
+                                        <span className="alert-ai-icon">🤖</span>
+                                        <span>{aiTip}</span>
+                                    </div>
+                                )}
+
+                                <p style={{fontSize: '0.72rem', color: 'var(--on-surface-dim)', textAlign: 'center', marginTop: '12px'}}>
+                                    🔒 Secure RBI Compliant Checkout
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('react-checkout-root'));
+        root.render(<CheckoutApp />);
+    </script>
+    <!-- AI CHATBOT -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>

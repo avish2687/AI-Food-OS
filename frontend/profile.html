@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile & Health Analytics — AI Smart Food OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=2">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/index.html" class="nav-logo" id="nav-logo">
+                <div class="logo-icon">🍴</div>
+                AI Food<span class="logo-accent">OS</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/index.html" id="nav-home">Home</a>
+                <a href="/menu.html" id="nav-menu">Menu</a>
+                <a href="/health.html" id="nav-health">Health</a>
+                <a href="/orders.html" id="nav-orders">Orders</a>
+                <a href="/profile.html" id="nav-profile" class="active">Profile</a>
+                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
+                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
+                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
+                        style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:0.9rem;">💳</span>
+                    <span id="nav-wallet-balance">–</span>
+                </button>
+                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
+                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- REACT MOUNT POINT -->
+    <main id="react-profile-root"></main>
+
+    <!-- GLOBAL SCRIPTS -->
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function logout() {
+            try {
+                await fetch(API_BASE + '/api/auth/signout', { method: 'POST' });
+            } catch(e) {}
+            window.location.href = '/signin.html';
+        }
+
+        async function loadNavInfo() {
+            try {
+                const r = await fetch(API_BASE + '/api/profile');
+                if (r.ok) {
+                    const data = await r.json();
+                    const bal = data.wallet_balance || 0;
+                    document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    if (data.subscription_tier === 'free') {
+                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
+                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        if (localStorage.getItem('theme') === 'dark') body.classList.add('dark-mode');
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        document.addEventListener('DOMContentLoaded', loadNavInfo);
+    </script>
+
+    <!-- REACT PROFILE COMPONENT -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        function ProfileApp() {
+            const [profile, setProfile] = useState({ name:'', age:null, height_cm:null, weight_kg:null, body_type:'average', fitness_goal:'maintain', phone:'', wallet_balance:0, referral_credits:0, subscription_tier:'free' });
+            const [orders, setOrders] = useState([]);
+            const [saveToast, setSaveToast] = useState('');
+            const [topupAmount, setTopupAmount] = useState('');
+
+            useEffect(() => {
+                loadProfile();
+                loadOrders();
+            }, []);
+
+            async function loadProfile() {
+                try {
+                    const r = await fetch('http://localhost:8000/api/profile');
+                    if (r.ok) setProfile(await r.json());
+                } catch(e) {}
+            }
+
+            async function loadOrders() {
+                try {
+                    const r = await fetch('http://localhost:8000/api/orders');
+                    if (r.ok) setOrders(await r.json());
+                } catch(e) {}
+            }
+
+            const bmi = useMemo(() => {
+                if (!profile.height_cm || !profile.weight_kg) return null;
+                const h = profile.height_cm / 100;
+                return (profile.weight_kg / (h * h)).toFixed(1);
+            }, [profile.height_cm, profile.weight_kg]);
+
+            const bmiCategory = useMemo(() => {
+                if (!bmi) return 'Enter height & weight';
+                if (bmi < 18.5) return '⚠️ Underweight';
+                if (bmi < 25) return '✅ Healthy Range';
+                if (bmi < 30) return '⚠️ Overweight';
+                return '🔴 Obese';
+            }, [bmi]);
+
+            const bmiColor = useMemo(() => {
+                if (!bmi) return '';
+                if (bmi < 18.5 || bmi >= 30) return 'red';
+                if (bmi >= 25) return 'orange';
+                return 'green';
+            }, [bmi]);
+
+            const tdee = useMemo(() => {
+                if (!profile.weight_kg || !profile.height_cm || !profile.age) return '–';
+                const bmr = 10 * profile.weight_kg + 6.25 * profile.height_cm - 5 * profile.age + 5;
+                return Math.round(bmr * 1.55);
+            }, [profile.weight_kg, profile.height_cm, profile.age]);
+
+            const proteinTarget = useMemo(() => {
+                if (!profile.weight_kg) return '–';
+                return Math.round(profile.weight_kg * (profile.fitness_goal === 'gain_muscle' ? 2.2 : 1.6));
+            }, [profile.weight_kg, profile.fitness_goal]);
+
+            const weightForecast = useMemo(() => {
+                if (!profile.fitness_goal) return '–';
+                return profile.fitness_goal === 'lose_weight' ? '-1.5 kg' : profile.fitness_goal === 'gain_muscle' ? '+0.8 kg' : '~0 kg';
+            }, [profile.fitness_goal]);
+
+            const diabetesRisk = useMemo(() => {
+                if (!bmi) return 'Unknown';
+                if (bmi >= 30) return 'High';
+                if (bmi >= 25) return 'Medium';
+                return 'Low';
+            }, [bmi]);
+
+            async function saveProfile() {
+                try {
+                    const r = await fetch('http://localhost:8000/api/profile', {
+                        method: 'PUT',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({
+                            name: profile.name,
+                            age: parseInt(profile.age) || null,
+                            height_cm: parseFloat(profile.height_cm) || null,
+                            weight_kg: parseFloat(profile.weight_kg) || null,
+                            body_type: profile.body_type,
+                            fitness_goal: profile.fitness_goal,
+                            phone: profile.phone
+                        })
+                    });
+                    if (r.ok) {
+                        setSaveToast('✅ Profile saved successfully!');
+                        setTimeout(() => setSaveToast(''), 3000);
+                    } else {
+                        throw new Error();
+                    }
+                } catch(e) {
+                    setSaveToast('⚠️ Save failed. Try again.');
+                    setTimeout(() => setSaveToast(''), 3000);
+                }
+            }
+
+            function topupWallet() {
+                const amt = parseFloat(topupAmount);
+                if (!amt || amt < 10) { alert('Minimum top-up is ₹10'); return; }
+                alert(`Razorpay payment flow for ₹${amt} would open here in production.\nWallet credited after payment confirmation.`);
+                setTopupAmount('');
+            }
+
+            function subscribe(plan) {
+                if (plan.current) return;
+                alert(`Razorpay subscription flow for ${plan.name} would activate here. Price: ${plan.price}`);
+            }
+
+            const plans = [
+                { id:'free', name:'FREE', price:'₹0 / forever', current:true, featured:false, features:['Basic ordering','AI chat (10/day)','Standard health scores'] },
+                { id:'pro_monthly', name:'⚡ PRO MONTHLY', price:'₹149 / month', current:false, featured:true, features:['Unlimited AI + predictions','Full health analyzer','Body-based nutrition','Food Experiment Lab','Ad-free'] },
+                { id:'pro_annual', name:'🏆 PRO ANNUAL', price:'₹999 / year', current:false, featured:false, features:['Everything in Pro Monthly','Craving prediction ML','Emergency credit ₹100','Priority AI response'] }
+            ];
+
+            const paymentMethods = [
+                { id:1, icon:'💳', name:'UPI Payments', desc:'GPay, PhonePe, Paytm, BHIM — real-time, 0 MDR' },
+                { id:2, icon:'🏦', name:'Cards (Visa/MC/RuPay)', desc:'Tokenized via Razorpay — PCI-DSS Level 1' },
+                { id:3, icon:'🪙', name:'Food Wallet', desc:'In-app balance — instant debit at checkout' },
+                { id:4, icon:'📱', name:'BNPL / EMI', desc:'LazyPay, Simpl — for orders above ₹500' },
+            ];
+
+            return (
+                <div>
+                    {/* HEADER */}
+                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '40px 0'}}>
+                        <div className="container">
+                            <div style={{display: 'flex', alignItems: 'center', gap: '24px'}}>
+                                <div style={{width: '72px', height: '72px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary-fixed), var(--primary-dim))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', boxShadow: '0 0 20px var(--primary-glow)'}}>
+                                    🧬
+                                </div>
+                                <div>
+                                    <span className="section-tag">Bio-Sync Dashboard</span>
+                                    <h1 className="section-title" style={{fontSize: '1.8rem'}}>
+                                        <span>{profile.name || 'Loading...'}</span>
+                                    </h1>
+                                    <div style={{display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap'}}>
+                                        <span className={`badge ${profile.subscription_tier === 'pro' ? 'badge-pro' : ''}`}
+                                              style={profile.subscription_tier !== 'pro' ? {background:'var(--surface-highest)', color:'var(--on-surface-dim)'} : {}}>
+                                            {profile.subscription_tier === 'pro' ? '⚡ Pro Member' : 'Free Tier'}
+                                        </span>
+                                        <span className="badge badge-health">💳 Wallet: ₹{profile.wallet_balance || 0}</span>
+                                        <span className="badge badge-ai">{profile.fitness_goal ? `🎯 Goal: ${profile.fitness_goal}` : '🎯 Set a goal'}</span>
+                                    </div>
+                                </div>
+                                <div style={{marginLeft: 'auto', display: 'flex', gap: '10px'}}>
+                                    <button className="btn btn-primary" onClick={saveProfile}>
+                                        💾 Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="container section">
+                        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px'}}>
+
+                            {/* LEFT COLUMN */}
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                                
+                                {/* BODY PROFILE */}
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>🧬 Body Profile</h3>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                                        <div className="grid-2">
+                                            <div className="form-group">
+                                                <label className="form-label">Full Name</label>
+                                                <input className="form-input" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} placeholder="Your name" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Age</label>
+                                                <input className="form-input" type="number" value={profile.age || ''} onChange={e => setProfile({...profile, age: e.target.value})} placeholder="25" />
+                                            </div>
+                                        </div>
+                                        <div className="grid-2">
+                                            <div className="form-group">
+                                                <label className="form-label">Height (cm)</label>
+                                                <input className="form-input" type="number" value={profile.height_cm || ''} onChange={e => setProfile({...profile, height_cm: e.target.value})} placeholder="175" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Weight (kg)</label>
+                                                <input className="form-input" type="number" value={profile.weight_kg || ''} onChange={e => setProfile({...profile, weight_kg: e.target.value})} placeholder="70" />
+                                            </div>
+                                        </div>
+                                        <div className="grid-2">
+                                            <div className="form-group">
+                                                <label className="form-label">Body Type</label>
+                                                <select className="form-input" value={profile.body_type} onChange={e => setProfile({...profile, body_type: e.target.value})}>
+                                                    <option value="ectomorph">Ectomorph (Lean)</option>
+                                                    <option value="mesomorph">Mesomorph (Athletic)</option>
+                                                    <option value="endomorph">Endomorph (Heavy)</option>
+                                                    <option value="average">Average</option>
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="form-label">Fitness Goal</label>
+                                                <select className="form-input" value={profile.fitness_goal} onChange={e => setProfile({...profile, fitness_goal: e.target.value})}>
+                                                    <option value="lose_weight">Lose Weight</option>
+                                                    <option value="gain_muscle">Gain Muscle</option>
+                                                    <option value="maintain">Maintain</option>
+                                                    <option value="improve_health">Improve Health</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Phone</label>
+                                            <input className="form-input" type="tel" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="+91 9876543210" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* HEALTH METRICS */}
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>📊 Health Analytics</h3>
+
+                                    <div className="grid-2" style={{gap: '16px'}}>
+                                        <div className="stat-widget">
+                                            <div className="stat-label">BMI</div>
+                                            <div className={`stat-value ${bmiColor}`}>{bmi || '–'}</div>
+                                            <div className="stat-change">{bmiCategory}</div>
+                                        </div>
+                                        <div className="stat-widget">
+                                            <div className="stat-label">Daily TDEE</div>
+                                            <div className="stat-value orange">{tdee} kcal</div>
+                                            <div className="stat-change">Estimated requirement</div>
+                                        </div>
+                                        <div className="stat-widget">
+                                            <div className="stat-label">Protein Target</div>
+                                            <div className="stat-value green">{proteinTarget}g</div>
+                                            <div className="stat-change">per day</div>
+                                        </div>
+                                        <div className="stat-widget">
+                                            <div className="stat-label">Wallet Balance</div>
+                                            <div className="stat-value orange">₹{profile.wallet_balance || 0}</div>
+                                            <div className="stat-change positive">Credits: ₹{profile.referral_credits || 0}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* 30-Day Risk Forecast */}
+                                    <div style={{marginTop: '20px', padding: '20px', background: 'var(--surface-high)', borderRadius: 'var(--radius-lg)'}}>
+                                        <div className="form-label" style={{marginBottom: '12px'}}>🔮 30-Day Forecast</div>
+                                        <div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+                                            <div style={{flex: 1, minWidth: '120px'}}>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>Weight Change</div>
+                                                <div style={{fontSize: '1.1rem', fontWeight: 700, color: weightForecast.startsWith('+') ? 'var(--error)' : 'var(--secondary)'}}>
+                                                    {weightForecast}
+                                                </div>
+                                            </div>
+                                            <div style={{flex: 1, minWidth: '120px'}}>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>Diabetes Risk</div>
+                                                <div style={{fontSize: '1.1rem', fontWeight: 700, color: diabetesRisk === 'High' ? 'var(--error)' : diabetesRisk === 'Medium' ? '#FFD700' : 'var(--secondary)'}}>
+                                                    {diabetesRisk}
+                                                </div>
+                                            </div>
+                                            <div style={{flex: 1, minWidth: '120px'}}>
+                                                <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>Energy Level</div>
+                                                <div style={{fontSize: '1.1rem', fontWeight: 700, color: 'var(--secondary)'}}>Optimal</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* WALLET & CREDITS */}
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>💳 Wallet & Credits</h3>
+                                    <div style={{background: 'linear-gradient(135deg, rgba(255,144,106,0.12), rgba(255,121,73,0.06))', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px'}}>
+                                        <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)', marginBottom: '4px'}}>Available Balance</div>
+                                        <div style={{fontFamily: 'var(--font-display)', fontSize: '2.4rem', fontWeight: 700, color: 'var(--primary)'}}>₹{profile.wallet_balance || 0}</div>
+                                    </div>
+                                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px'}}>
+                                        <div style={{background: 'var(--surface-high)', borderRadius: 'var(--radius-md)', padding: '14px'}}>
+                                            <div style={{fontSize: '0.72rem', color: 'var(--on-surface-dim)'}}>Referral Credits</div>
+                                            <div style={{fontWeight: 700, color: 'var(--secondary)'}}>₹{profile.referral_credits || 0}</div>
+                                        </div>
+                                        <div style={{background: 'var(--surface-high)', borderRadius: 'var(--radius-md)', padding: '14px'}}>
+                                            <div style={{fontSize: '0.72rem', color: 'var(--on-surface-dim)'}}>Emergency Credit</div>
+                                            <div style={{fontWeight: 700, color: 'var(--primary)'}}>₹100 (Pro)</div>
+                                        </div>
+                                    </div>
+                                    <div style={{display: 'flex', gap: '10px'}}>
+                                        <input className="form-input" type="number" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} placeholder="Top-up ₹" style={{flex: 1}} />
+                                        <button className="btn btn-primary" onClick={topupWallet}>Add Money</button>
+                                    </div>
+                                    <p style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)', marginTop: '10px'}}>
+                                        💡 Referral: Share your code and earn ₹50 per successful signup (max ₹500/month).
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* RIGHT COLUMN */}
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                                
+                                {/* ORDER HISTORY */}
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>📋 Recent Orders</h3>
+                                    {orders.length === 0 ? (
+                                        <div style={{textAlign:'center',padding:'40px',color:'var(--on-surface-dim)'}}>
+                                            <div style={{fontSize:'2.5rem',marginBottom:'12px'}}>🍽️</div>
+                                            <div>No orders yet. Explore the menu!</div>
+                                            <button className="btn btn-primary btn-sm" onClick={() => location.href='/menu.html'} style={{marginTop:'12px'}}>Browse Menu</button>
+                                        </div>
+                                    ) : (
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                                            {orders.map(order => (
+                                                <div key={order.id} style={{background: 'var(--surface-high)', borderRadius: 'var(--radius-md)', padding: '14px', display: 'flex', alignItems: 'center', gap: '14px'}}>
+                                                    <div style={{fontSize: '1.6rem'}}>🍽️</div>
+                                                    <div style={{flex: 1}}>
+                                                        <div style={{fontWeight: 700, fontSize: '0.9rem'}}>Order #{String(order.id).slice(-6)}</div>
+                                                        <div style={{fontSize: '0.78rem', color: 'var(--on-surface-dim)'}}>
+                                                            {new Date(order.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{textAlign: 'right'}}>
+                                                        <div style={{fontWeight: 700, color: 'var(--primary)'}}>₹{order.amount}</div>
+                                                        <div className="badge" style={{fontSize: '0.68rem', background: order.status === 'delivered' ? 'rgba(107,254,156,0.1)' : 'rgba(255,144,106,0.1)', color: order.status === 'delivered' ? 'var(--secondary)' : 'var(--primary)'}}>
+                                                            {order.status}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* SUBSCRIPTION */}
+                                <div className="card" id="pricing" style={{scrollMarginTop: '90px'}}>
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>⚡ Subscription</h3>
+
+                                    {plans.map(plan => (
+                                        <div key={plan.id} className={`pricing-card ${plan.featured ? 'featured' : ''}`} style={{marginBottom: '16px'}}>
+                                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                                                <div>
+                                                    <div className={`badge ${plan.featured ? 'badge-ai' : ''}`} style={{marginBottom: '8px', ...(plan.featured ? {} : {background:'var(--surface-highest)',color:'var(--on-surface-dim)'})}}>
+                                                        {plan.name}
+                                                    </div>
+                                                    <div className="pricing-price" style={{fontSize: '1.8rem'}}>{plan.price}</div>
+                                                </div>
+                                                <button className={`btn btn-sm ${plan.current ? 'btn-ghost' : plan.featured ? 'btn-primary' : 'btn-secondary'}`}
+                                                        onClick={() => subscribe(plan)} disabled={plan.current}>
+                                                    {plan.current ? 'Current Plan' : 'Upgrade'}
+                                                </button>
+                                            </div>
+                                            <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px'}}>
+                                                {plan.features.map(feat => (
+                                                    <div key={feat} className="pricing-feature" style={{fontSize: '0.82rem'}}>{feat}</div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* PAYMENT METHODS */}
+                                <div className="card">
+                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '20px'}}>💳 Payment Methods</h3>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                                        {paymentMethods.map(method => (
+                                            <div key={method.id} style={{display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: 'var(--surface-high)', borderRadius: 'var(--radius-md)'}}>
+                                                <div style={{fontSize: '1.4rem'}}>{method.icon}</div>
+                                                <div style={{flex: 1}}>
+                                                    <div style={{fontWeight: 600, fontSize: '0.9rem'}}>{method.name}</div>
+                                                    <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>{method.desc}</div>
+                                                </div>
+                                                <span className="badge badge-health" style={{fontSize: '0.65rem'}}>Active</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SAVE SUCCESS TOAST */}
+                    {saveToast && (
+                        <div style={{position:'fixed',bottom:'30px',left:'50%',transform:'translateX(-50%)',background:'var(--surface-highest)',border:'1px solid rgba(107,254,156,0.3)',borderRadius:'var(--radius-lg)',padding:'14px 24px',zIndex:900,display:'flex',alignItems:'center',gap:'10px',boxShadow:'0 8px 30px rgba(0,0,0,0.5)'}}>
+                            <span style={{fontSize:'0.9rem',fontWeight:600}}>{saveToast}</span>
+                        </div>
+                    )}
+                </div>
+            )
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('react-profile-root'));
+        root.render(<ProfileApp />);
+    </script>
+    <!-- AI CHATBOT -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>

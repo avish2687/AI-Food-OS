@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Settings — AI Smart Food OS</title>
+    <meta name="description" content="Manage your dietary preferences, budget, and app settings.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/index.html" class="nav-logo" id="nav-logo">
+                <div class="logo-icon">🍴</div>
+                AI Food<span class="logo-accent">OS</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="/index.html" id="nav-home">Home</a>
+                <a href="/menu.html" id="nav-menu">Menu</a>
+                <a href="/health.html" id="nav-health">Health</a>
+                <a href="/orders.html" id="nav-orders">Orders</a>
+                <a href="/profile.html" id="nav-profile">Profile</a>
+                <a href="/settings.html" id="nav-settings" class="active" style="font-size: 1.1rem;">⚙</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
+                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
+                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
+                        style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:0.9rem;">💳</span>
+                    <span id="nav-wallet-balance">–</span>
+                </button>
+                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
+                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- REACT MOUNT POINT -->
+    <main id="react-settings-root"></main>
+
+    <!-- GLOBAL SCRIPTS -->
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        async function logout() {
+            try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
+            window.location.href = '/signin.html';
+        }
+
+        async function loadNavInfo() {
+            try {
+                const r = await fetch(API_BASE + '/api/profile');
+                if (r.ok) {
+                    const data = await r.json();
+                    const bal = data.wallet_balance || 0;
+                    document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                }
+            } catch(e) {}
+        }
+        
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+        if (localStorage.getItem('theme') === 'dark') body.classList.add('dark-mode');
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
+
+        document.addEventListener('DOMContentLoaded', loadNavInfo);
+    </script>
+
+    <!-- REACT SETTINGS COMPONENT -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function SettingsApp() {
+            const [activeTab, setActiveTab] = useState('diet');
+            const [saved, setSaved] = useState(false);
+            const [settings, setSettings] = useState({
+                diet_type: 'omnivore',
+                spice_level: 'Medium',
+                prefer_veg: false,
+                prefer_low_calorie: false,
+                allergens: [],
+                daily_budget: 300,
+                emergency_threshold: 80,
+                theme: localStorage.getItem('theme') || 'dark'
+            });
+
+            const tabs = [
+                { id: 'diet', icon: '🥦', label: 'Dietary' },
+                { id: 'allergens', icon: '⚠️', label: 'Allergens' },
+                { id: 'budget', icon: '💰', label: 'Budget' },
+                { id: 'appearance', icon: '🎨', label: 'Appearance' }
+            ];
+
+            function saveAll() {
+                localStorage.setItem('foodos_settings', JSON.stringify(settings));
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+                alert('✅ Settings saved to your local OS node.');
+            }
+
+            return (
+                <div>
+                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '32px 0'}}>
+                        <div className="container">
+                            <span className="section-tag">⚙️ Configuration</span>
+                            <div style={{display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px'}}>
+                                <h1 className="section-title">App <span style={{color: 'var(--primary)'}}>Settings</span></h1>
+                                <button className="btn btn-primary" onClick={saveAll}>💾 Save Changes</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="container section-sm">
+                        <div style={{display: 'grid', gridTemplateColumns: '200px 1fr', gap: '40px'}}>
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                                {tabs.map(tab => (
+                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                            style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', textAlign: 'left', fontWeight: 600, background: activeTab === tab.id ? 'rgba(255,144,106,0.15)' : 'transparent', color: activeTab === tab.id ? 'var(--primary)' : 'var(--on-surface-dim)'}}>
+                                        <span>{tab.icon}</span>
+                                        <span>{tab.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="card">
+                                {activeTab === 'diet' && (
+                                    <div>
+                                        <h2 style={{fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '20px'}}>Dietary Focus</h2>
+                                        <div className="form-group">
+                                            <label className="form-label">Main Diet Type</label>
+                                            <select className="form-input" value={settings.diet_type} onChange={e => setSettings({...settings, diet_type: e.target.value})}>
+                                                <option value="omnivore">Omnivore</option>
+                                                <option value="vegetarian">Vegetarian</option>
+                                                <option value="vegan">Vegan</option>
+                                                <option value="jain">Jain</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group" style={{marginTop:'20px'}}>
+                                            <label className="form-label">Spiciness Preference</label>
+                                            <div style={{display:'flex', gap:'10px'}}>
+                                                {['Mild', 'Medium', 'Hot'].map(lv => (
+                                                    <button key={lv} className={`btn btn-sm ${settings.spice_level === lv ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setSettings({...settings, spice_level: lv})}>{lv}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {activeTab === 'budget' && (
+                                    <div>
+                                        <h2 style={{fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '20px'}}>Budget Control</h2>
+                                        <div className="form-group">
+                                            <label className="form-label">Daily Food Budget (₹)</label>
+                                            <input type="range" min="100" max="1000" step="50" className="form-input" value={settings.daily_budget} onChange={e => setSettings({...settings, daily_budget: e.target.value})} style={{accentColor:'var(--primary)'}} />
+                                            <div style={{textAlign:'center', fontWeight:700, marginTop:'10px'}}>₹{settings.daily_budget}</div>
+                                        </div>
+                                    </div>
+                                )}
+                                {activeTab === 'allergens' && (
+                                    <div>
+                                        <h2 style={{fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '20px'}}>Allergen Alerts</h2>
+                                        <p style={{color:'var(--on-surface-dim)', fontSize:'0.9rem'}}>Select components you are allergic to. AI will flag matching food items.</p>
+                                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginTop:'20px'}}>
+                                            {['Gluten', 'Dairy', 'Nuts', 'Eggs', 'Soy', 'Shellfish'].map(alg => (
+                                                <label key={alg} style={{display:'flex', alignItems:'center', gap:'10px', padding:'12px', background:'var(--surface-high)', borderRadius:'8px', cursor:'pointer'}}>
+                                                    <input type="checkbox" checked={settings.allergens.includes(alg)} onChange={()=>{
+                                                        const next = settings.allergens.includes(alg) ? settings.allergens.filter(x => x !== alg) : [...settings.allergens, alg];
+                                                        setSettings({...settings, allergens: next});
+                                                    }} />
+                                                    {alg}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {activeTab === 'appearance' && (
+                                    <div>
+                                        <h2 style={{fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '20px'}}>Visual Experience</h2>
+                                        <p>Theme selection is handled by the global toggle in the navbar.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('react-settings-root'));
+        root.render(<SettingsApp />);
+    </script>
+    
+    <!-- AI CHATBOT -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enjoy Our Delicious Meal — AI Smart Food OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/landing_style.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- React via CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+
+    <header style="padding: 30px 40px; position: absolute; width: 100%; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-family: 'Space Grotesk'; font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+            <span style="color: var(--primary);">🍴</span> AI Food OS
+        </div>
+        <nav style="display: flex; gap: 40px; font-weight: 600; font-size: 0.95rem;">
+            <a href="#" style="color: var(--primary); text-decoration: none;">HOME</a>
+            <a href="#features" style="color: #fff; text-decoration: none;">FEATURES</a>
+            <a href="#pricing" style="color: #fff; text-decoration: none;">PRICING</a>
+            <a href="#" style="color: #fff; text-decoration: none;">CONTACT</a>
+        </nav>
+        <div style="display: flex; gap: 12px;">
+            <button class="btn" onclick="location.href='/signin.html'" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 10px 24px; font-size: 0.9rem;">Sign In</button>
+            <button class="btn btn-primary" onclick="location.href='/signin.html'" style="padding: 10px 24px; font-size: 0.9rem;">Launch App</button>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <span class="hero-tag">AI Smart Food OS</span>
+                <h1 class="hero-title">Enjoy Our<br><span>Delicious Meal</span></h1>
+                <p class="hero-desc">
+                    Experience the finest culinary delights crafted by our master chefs. 
+                    From traditional recipes to modern innovations, every dish tells a story of passion and excellence.
+                </p>
+                <div style="display: flex; gap: 16px;">
+                    <button class="btn btn-primary" onclick="location.href='/signin.html'">Launch App</button>
+                    <button class="btn" onclick="location.href='/signin.html'" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;">Sign In</button>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <div class="glow"></div>
+                <div class="rotating-container">
+                    <div class="rotating-dish"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="specs-section">
+        <div class="container" style="display: block;">
+            <div class="section-header">
+                <h2>Platform Specifications</h2>
+                <p style="color: var(--on-surface-dim);">Engineered for performance, health, and budgetary intelligence.</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <i class="material-icons">smart_toy</i>
+                    <h3>AI Smart Concierge</h3>
+                    <p>Advanced natural language interface for real-time food ordering, dietary advice, and personalized recipe generation.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="material-icons">analytics</i>
+                    <h3>Macro HUD</h3>
+                    <p>Real-time tracking of micro and macro-nutrients with adaptive targets based on your unique health profile.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="material-icons">payments</i>
+                    <h3>Budget Engine</h3>
+                    <p>Dynamic cost analysis optimizes your spending across vendors, ensuring premium nutrition at effective price points.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="material-icons">layers</i>
+                    <h3>Unified Stack</h3>
+                    <p>High-performance decoupled architecture using FastAPI and React for seamless, near-zero latency interaction.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing-section">
+        <div class="container" style="display: block;">
+            <div class="section-header">
+                <h2>Choose Your Plan</h2>
+                <p style="color: var(--on-surface-dim);">Select the level of intelligence that fits your culinary journey.</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="plan-name">Basic</div>
+                    <div class="plan-price">$0<span>/mo</span></div>
+                    <ul class="feature-list">
+                        <li>Community AI Chat</li>
+                        <li>Standard Macro Tracking</li>
+                        <li>Basic Vendor Access</li>
+                    </ul>
+                    <button class="btn" style="border: 1px solid rgba(255,255,255,0.1); color: #fff;">Start Free</button>
+                </div>
+                <div class="pricing-card popular">
+                    <div class="popular-badge">MOST POPULAR</div>
+                    <div class="plan-name">Pro</div>
+                    <div class="plan-price">$12<span>/mo</span></div>
+                    <ul class="feature-list">
+                        <li>Full Smart Concierge</li>
+                        <li>Advanced Budget Engine</li>
+                        <li>Priority Ordering</li>
+                        <li>Nutritional Insights</li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="toggleAuth(true)">Get Started</button>
+                </div>
+                <div class="pricing-card">
+                    <div class="plan-name">Elite</div>
+                    <div class="plan-price">$29<span>/mo</span></div>
+                    <ul class="feature-list">
+                        <li>Personal AI Nutritionist</li>
+                        <li>Unlimited Health Analytics</li>
+                        <li>Concierge Delivery</li>
+                        <li>Direct Chef Support</li>
+                    </ul>
+                    <button class="btn" style="border: 1px solid rgba(255,255,255,0.1); color: #fff;">Go Elite</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AUTH MODAL MOUNT POINT -->
+    <div id="auth-root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function AuthModal() {
+            const [isOpen, setIsOpen] = useState(false);
+            const [step, setStep] = useState('phone'); // phone, otp
+            const [phone, setPhone] = useState('');
+            const [otp, setOtp] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [devMode, setDevMode] = useState(true);
+
+            // Listen for global toggle
+            useEffect(() => {
+                window.toggleAuth = (val) => setIsOpen(val);
+            }, []);
+
+            async function sendOtp(e) {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    const res = await fetch('http://localhost:8000/api/auth/send-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone })
+                    });
+                    if (res.ok) setStep('otp');
+                    else alert('Failed to send OTP. Ensure phone format is +91...');
+                } catch (err) {
+                    alert('Network error connecting to backend.');
+                }
+                setLoading(false);
+            }
+
+            async function verifyOtp(e) {
+                e.preventDefault();
+                setLoading(true);
+                
+                // Dev Mode Bypass
+                if (devMode && otp === '123456') {
+                    alert('Dev Mode: Verified!');
+                    window.location.href = '/index.html';
+                    return;
+                }
+
+                try {
+                    const res = await fetch('http://localhost:8000/api/auth/verify-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone, token: otp })
+                    });
+                    if (res.ok) {
+                        window.location.href = '/index.html';
+                    } else {
+                        alert('Invalid OTP.');
+                    }
+                } catch (err) {
+                    alert('Verification error.');
+                }
+                setLoading(false);
+            }
+
+            if (!isOpen) return null;
+
+            return (
+                <div className={`auth-overlay ${isOpen ? 'active' : ''}`}>
+                    <div className="auth-card">
+                        <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+                        
+                        <div style={{textAlign: 'center', marginBottom: '32px'}}>
+                            <h2 style={{fontFamily: 'var(--font-display)', fontSize: '2rem', marginBottom: '12px'}}>
+                                {step === 'phone' ? 'Join the OS' : 'Verify Code'}
+                            </h2>
+                            <p style={{color: 'var(--on-surface-dim)', fontSize: '0.9rem'}}>
+                                {step === 'phone' ? 'Enter your phone number to continue' : `We've sent a 6-digit code to ${phone}`}
+                            </p>
+                        </div>
+
+                        {step === 'phone' ? (
+                            <form onSubmit={sendOtp}>
+                                <div className="form-group">
+                                    <label className="form-label">Phone Number</label>
+                                    <input className="form-input" type="tel" value={phone} 
+                                           onChange={e => setPhone(e.target.value)} 
+                                           placeholder="+91 98765 43210" required />
+                                </div>
+                                <button className="btn btn-primary" style={{width: '100%'}} disabled={loading}>
+                                    {loading ? 'Sending...' : 'Get OTP →'}
+                                </button>
+                                
+                                <div style={{marginTop: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--on-surface-dim)'}}>
+                                    <input type="checkbox" checked={devMode} onChange={e => setDevMode(e.target.checked)} />
+                                    <span>Enable Dev Mode (Bypass OTP)</span>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={verifyOtp}>
+                                <div className="form-group">
+                                    <label className="form-label">Verification Code</label>
+                                    <input className="form-input" type="text" value={otp} 
+                                           onChange={e => setOtp(e.target.value)} 
+                                           placeholder="123456" maxLength="6" required />
+                                </div>
+                                <button className="btn btn-primary" style={{width: '100%'}} disabled={loading}>
+                                    {loading ? 'Verifying...' : 'Unlock Dashboard →'}
+                                </button>
+                                <p style={{textAlign:'center', marginTop:'16px', fontSize:'0.8rem', cursor:'pointer', color:'var(--primary)'}}
+                                   onClick={() => setStep('phone')}>
+                                   Changed number?
+                                </p>
+                            </form>
+                        )}
+                        
+                        {devMode && step === 'otp' && (
+                            <p style={{marginTop:'20px', fontSize:'0.75rem', color:'var(--secondary)', textAlign:'center'}}>
+                                💡 Tip: In Dev Mode, enter <b>123456</b>
+                            </p>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('auth-root'));
+        root.render(<AuthModal />);
+    </script>
+
+    <!-- AI CHATBOT INTEGRATION -->
+    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+</body>
+</html>
