@@ -1,0 +1,19 @@
+{
+  “version”: 2,
+  “builds”: [
+    {
+      “src”: “frontend/**/*”,
+      “use”: “@vercel/static”
+    }
+  ],
+  “routes”: [
+    {
+      “src”: “/api/(.*)”,
+      “dest”: “https://your-backend-url.onrender.com/api/$1”
+    },
+    {
+      “src”: “/(.*)”,
+      “dest”: “/frontend/$1”
+    }
+  ]
+}

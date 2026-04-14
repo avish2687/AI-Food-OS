@@ -101,14 +101,16 @@
 
         // Map Component using Leaflet
         function MapView({ lat, lng, onMove }) {
+            const mapContainerRef = useRef(null);
             const mapRef = useRef(null);
             const markerRef = useRef(null);
             const [mapLoaded, setMapLoaded] = useState(false);
 
             useEffect(() => {
-                if (!mapRef.current || mapLoaded) return;
+                if (!mapContainerRef.current || mapLoaded) return;
                 
-                const map = L.map(mapRef.current).setView([lat, lng], 14);
+                const map = L.map(mapContainerRef.current).setView([lat, lng], 14);
+                mapRef.current = map;
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
@@ -131,14 +133,34 @@
             }, []);
 
             useEffect(() => {
-                if (markerRef.current && mapLoaded) {
-                    markerRef.current.setLatLng([lat, lng]);
+                if (mapRef.current && mapLoaded) {
+                    mapRef.current.panTo([lat, lng]);
+                    if (markerRef.current) {
+                        markerRef.current.setLatLng([lat, lng]);
+                    }
                 }
             }, [lat, lng, mapLoaded]);
 
             return (
-                <div style={{height: '280px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--outline-variant)'}}>
-                    <div ref={mapRef} style={{height: '100%', width: '100%'}} />
+                <div style={{position: 'relative', height: '320px', width: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '2px solid var(--outline-variant)'}}>
+                    <div ref={mapContainerRef} style={{height: '100%', width: '100%'}} />
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            if (navigator.geolocation) {
+                                navigator.geolocation.getCurrentPosition((pos) => {
+                                    onMove(pos.coords.latitude, pos.coords.longitude);
+                                });
+                            }
+                        }}
+                        style={{
+                            position: 'absolute', top: '10px', right: '10px', zIndex: 1000,
+                            padding: '8px 12px', background: 'var(--primary)', color: 'white',
+                            border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)', cursor: 'pointer'
+                        }}>
+                        🎯 Auto Detect Location
+                    </button>
                 </div>
             );
         }
@@ -162,9 +184,44 @@
                 lng: 72.8777
             });
 
+            const reverseGeocode = async (lat, lng) => {
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+                    const data = await res.json();
+                    if (data && data.address) {
+                        const addr = data.address;
+                        const streetLabel = [addr.road, addr.suburb, addr.neighbourhood].filter(Boolean).join(', ');
+                        const areaLabel = [addr.city_district, addr.city, addr.state].filter(Boolean).join(', ');
+                        
+                        setAddress(prev => ({
+                            ...prev,
+                            lat,
+                            lng,
+                            street: streetLabel || prev.street,
+                            area: areaLabel || prev.area
+                        }));
+                    }
+                } catch (e) {
+                    console.error("Geocoding failed", e);
+                }
+            };
+
             useEffect(() => {
                 fetchProfile();
             }, []);
+
+            useEffect(() => {
+                if (step === 2) {
+                    // Try to auto-detect location when reaching the map step
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition((pos) => {
+                            reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+                        }, (err) => {
+                            console.log("Location access denied:", err.message);
+                        });
+                    }
+                }
+            }, [step]);
 
             useEffect(() => {
                 localStorage.setItem('cart', JSON.stringify(cart));
@@ -430,7 +487,7 @@
                                             <input className="form-input" value={address.street} onChange={e => setAddress({...address, street: e.target.value})} placeholder="e.g. Pali Hill, Bandra West" />
                                         </div>
                                         <div className="form-label" style={{marginTop: '16px'}}>Pin precise location on Map</div>
-                                        <MapView lat={address.lat} lng={address.lng} onMove={(lat, lng) => setAddress({...address, lat, lng})} />
+                                        <MapView lat={address.lat} lng={address.lng} onMove={(lat, lng) => reverseGeocode(lat, lng)} />
                                         
                                         <div style={{display: 'flex', gap: '12px', marginTop: '24px'}}>
                                             <button className="btn btn-ghost" style={{flex: 1}} onClick={() => setStep(1)}>← Back</button>

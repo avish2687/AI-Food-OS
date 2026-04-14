@@ -362,6 +362,7 @@ async def place_order(request: Request, body: OrderRequest):
             "delivery_address": body.delivery_address,
             "lat": body.lat,
             "lng": body.lng,
+            "items": [i.dict() for i in body.items],
             "delivery_boy_name": random.choice(["Rohan Kumar", "Aakash Singh", "Priya Sharma", "Vikram Mehta"]),
             "eta": random.randint(20, 45),
             "created_at": datetime.utcnow().isoformat()
