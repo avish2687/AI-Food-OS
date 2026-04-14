@@ -56,7 +56,7 @@
         
         async function logout() {
             try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
-            window.location.href = '/signin.html';
+            window.location.href = '/landing.html';
         }
 
         async function loadNavInfo() {
