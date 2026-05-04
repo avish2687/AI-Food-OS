@@ -43,6 +43,7 @@
                         <div class="input-row-inline">
                             <i class="fa-solid fa-mobile-screen-button"></i>
                             <input type="tel" id="phone-input" class="auth-input" placeholder="Phone Number" 
+                                   maxlength="13"
                                    onfocus="if(this.value==='') this.value='+91'" required>
                             <button type="button" id="send-otp-btn" class="btn-inline">SEND OTP</button>
                         </div>
@@ -76,6 +77,14 @@
         const statusMsg = document.getElementById('status-message');
         const authForm = document.getElementById('auth-form');
 
+        // Enforce digits-only after +91 prefix & limit to 10 digits
+        phoneInput.addEventListener('input', () => {
+            let val = phoneInput.value;
+            if (!val.startsWith('+91')) val = '+91';
+            let digits = val.slice(3).replace(/\D/g, '').slice(0, 10);
+            phoneInput.value = '+91' + digits;
+        });
+
         function showStatus(text, type) {
             statusMsg.textContent = text;
             statusMsg.style.height = 'auto';
@@ -88,8 +97,10 @@
 
         sendOtpBtn.addEventListener('click', async () => {
             const phone = phoneInput.value.trim();
-            if (!phone || phone === '+91') {
-                showStatus("Please enter a valid phone number", "error");
+            const digits = phone.replace(/^\+91/, '');
+            if (!phone || phone === '+91' || digits.length !== 10) {
+                showStatus("Please enter a valid 10-digit phone number", "error");
+                phoneInput.focus();
                 return;
             }
 

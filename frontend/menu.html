@@ -21,7 +21,7 @@
         <div class="container">
             <a href="/index.html" class="nav-logo" id="nav-logo">
                 <div class="logo-icon">🍴</div>
-                AI Food<span class="logo-accent">OS</span>
+                AI Food <span class="logo-accent">OS</span>
             </a>
 
             <div class="nav-links">
@@ -30,36 +30,30 @@
                 <a href="/health.html" id="nav-health">Health</a>
                 <a href="/orders.html" id="nav-orders">Orders</a>
                 <a href="/profile.html" id="nav-profile">Profile</a>
-                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
             </div>
 
             <div class="nav-actions">
-                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
-                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
-                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
-                        style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:0.9rem;">💳</span>
+                <button class="btn-icon-circle" id="nav-settings-btn" onclick="location.href='/settings.html'" title="Settings">⚙</button>
+                <button class="btn-icon-circle" id="theme-toggle" title="Toggle Theme">🌓</button>
+                <div class="btn-pro" id="nav-pro-badge" onclick="location.href='/profile.html#pricing'" style="cursor: pointer;">⚡ PRO</div>
+                <div class="wallet-pill" id="nav-wallet-pill" onclick="location.href='/profile.html'" style="cursor: pointer;">
+                    <span>💳</span>
                     <span id="nav-wallet-balance">–</span>
-                </button>
-                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
-                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+                </div>
+                <button class="btn-icon-circle" id="nav-logout-btn" onclick="logout()" title="Sign out" style="color: var(--on-surface);">⏻</button>
             </div>
         </div>
     </nav>
 
     <!-- MAIN CONTENT: REACT MOUNT POINT -->
-    <main id="react-menu-root">
-       <!-- React Menu App will bootstrap here -->
-    </main>
+    <main id="react-menu-root"></main>
 
     <!-- GLOBAL SCRIPTS -->
     <script>
         const API_BASE = 'http://localhost:8000';
         
         async function logout() {
-            try {
-                await fetch(API_BASE + '/api/auth/signout', { method: 'POST' });
-            } catch(e) {}
+            try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
             window.location.href = '/landing.html';
         }
 
@@ -70,9 +64,15 @@
                     const data = await r.json();
                     const bal = data.wallet_balance || 0;
                     document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    const proBadge = document.getElementById('nav-pro-badge');
                     if (data.subscription_tier === 'free') {
-                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
-                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                        proBadge.textContent = '⚡ Upgrade';
+                        proBadge.style.background = 'var(--surface-highest)';
+                        proBadge.style.color = 'var(--on-surface)';
+                    } else {
+                        proBadge.textContent = '⚡ PRO';
+                        proBadge.style.background = 'var(--accent-pro)';
+                        proBadge.style.color = '#000';
                     }
                 }
             } catch(e) {}
@@ -210,17 +210,19 @@
 
             return (
                 <div>
-                    {/* PAGE HEADER */}
-                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '32px 0'}}>
+                    {/* PAGE HEADER MATCHING HOME AESTHETIC */}
+                    <div style={{ padding: '60px 0 40px 0', backgroundColor: 'var(--bg)' }}>
                         <div className="container">
-                            <span className="section-tag">AI Smart Menu</span>
-                            <div style={{display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px'}}>
-                                <h1 className="section-title">Food Intelligence <span style={{color: 'var(--primary)'}}>Catalogue</span></h1>
-                                <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                                    <button className="btn btn-danger btn-sm" onClick={toggleEmergency}>
+                            <div className="section-tag">AI Smart Menu</div>
+                            <div style={{display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap'}}>
+                                <h1 className="section-title" style={{ margin: 0 }}>
+                                    Food Intelligence <span style={{color: 'var(--accent-emergency)'}}>Catalogue</span>
+                                </h1>
+                                <div style={{display: 'flex', gap: '16px', alignItems: 'center'}}>
+                                    <button className={`btn-emergency ${emergencyMode ? 'active' : ''}`} onClick={toggleEmergency}>
                                         {!emergencyMode ? '🆘 Emergency Mode' : '✕ Exit Emergency'}
                                     </button>
-                                    <button className="btn btn-primary btn-sm" onClick={() => location.href='/checkout.html'}>
+                                    <button className="btn btn-primary" onClick={() => location.href='/checkout.html'} style={{borderRadius: '16px', padding: '12px 24px'}}>
                                         🛒 Cart ({cartCount})
                                     </button>
                                 </div>
@@ -228,11 +230,13 @@
 
                             {/* EMERGENCY BANNER */}
                             {emergencyMode && (
-                                <div className="emergency-banner" style={{marginTop: '16px'}}>
-                                    <div className="emergency-icon">🆘</div>
-                                    <div>
-                                        <strong style={{color: 'var(--error)'}}>Emergency Survival Mode</strong>
-                                        <div style={{fontSize: '0.85rem', color: 'var(--on-surface-dim)'}}>Showing meals under ₹80 only — optimized for critical balance.</div>
+                                <div className="emergency-banner" style={{marginTop: '32px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '20px', padding: '24px'}}>
+                                    <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
+                                        <div style={{fontSize: '2rem'}}>🆘</div>
+                                        <div>
+                                            <strong style={{color: '#ef4444', display: 'block', fontSize: '1.1rem', marginBottom: '4px'}}>Survival Mode Activated</strong>
+                                            <div style={{fontSize: '0.9rem', color: 'var(--on-surface-dim)'}}>Showing calorie-dense meals under ₹80 only. Optimized for survival.</div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -394,57 +398,58 @@
                                     </div>
                                 )}
 
-                                {/* FOOD GRID */}
-                                {!loading && (
+                                {filteredFoods.length > 0 ? (
                                     <div className="grid-auto" style={{animation: 'slideInUp 0.5s var(--ease-out)'}}>
                                         {filteredFoods.map(food => (
                                             <div key={food.id} className="food-card">
-                                                <div className="food-card-img" style={food.image_url ? {
-                                                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%), url(${food.image_url})`,
+                                                <div className="food-card-img" style={{
+                                                    backgroundImage: food.image_url ? `url(${food.image_url})` : 'none',
                                                     backgroundSize: 'cover',
                                                     backgroundPosition: 'center',
-                                                    height: '200px'
-                                                } : {
-                                                    background: 'var(--surface-high)',
-                                                    display: 'flex',
+                                                    backgroundColor: food.image_url ? 'transparent' : 'var(--surface-low)',
+                                                    display: food.image_url ? 'block' : 'flex',
                                                     justifyContent: 'center',
-                                                    alignItems: 'center',
-                                                    height: '200px'
+                                                    alignItems: 'center'
                                                 }}>
-                                                    {!food.image_url && (
-                                                        <span style={{fontSize: '5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))'}}>{food.image_emoji || '🍽️'}</span>
-                                                    )}
-                                                    
-                                                    {/* Overlays */}
-                                                    <div style={{position:'absolute', top:'12px', left:'12px', display:'flex', flexDirection:'column', gap:'6px', zIndex:5}}>
-                                                        {food.health_score >= 85 && <span className="badge badge-ai" style={{background: 'rgba(107,254,156,0.9)', color:'#000'}}>🤖 AI Pick</span>}
-                                                        {food.is_veg && <span className="badge" style={{background: 'rgba(255,255,255,0.9)', color:'#2d5a27', border:'1px solid #2d5a27'}}>Veg</span>}
-                                                    </div>
+                                                    {!food.image_url && <span style={{fontSize: '4rem'}}>{food.image_emoji || '🍽️'}</span>}
+                                                    {food.health_score >= 85 && <div className="food-badge">✨ AI Pick</div>}
+                                                    <div className={`diet-indicator ${food.is_veg ? 'veg' : 'non-veg'}`}></div>
                                                 </div>
 
                                                 <div className="food-card-body">
-                                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: '8px'}}>
-                                                        <h3 className="food-card-name">{food.name}</h3>
-                                                        <div className="food-card-price">₹{food.price}</div>
+                                                    <div className="food-card-header">
+                                                        <div className="food-title">{food.name}</div>
+                                                        <div className="food-price">₹{food.price}</div>
                                                     </div>
                                                     
-                                                    <div className="health-ring-wrap" style={{marginTop: '10px'}}>
-                                                        <div className={`health-ring ${food.health_score >= 70 ? 'score-high' : food.health_score >= 40 ? 'score-med' : 'score-low'}`}
-                                                             style={{'--pct': `${food.health_score * 3.6}deg`}}>
+                                                    <div className="health-ring-wrap">
+                                                        <div className="health-ring" style={{'--pct': `${(food.health_score || 0) * 3.6}deg`, '--score-color': food.health_score >= 80 ? 'var(--success)' : food.health_score >= 60 ? 'var(--secondary)' : 'var(--error)'}}>
                                                             <span>{food.health_score}</span>
                                                         </div>
-                                                        <div className="macro-pills">
-                                                            <span className="macro-pill calories">🔥 {food.calories}</span>
-                                                            <span className="macro-pill protein">💪 {food.protein_g}g</span>
+                                                        <div>
+                                                            <div className="health-label">HEALTH</div>
+                                                            <div className="health-status" style={{color: food.health_score >= 80 ? 'var(--success)' : food.health_score >= 60 ? 'var(--secondary)' : 'var(--error)'}}>
+                                                                {food.health_score >= 80 ? 'Excellent' : food.health_score >= 60 ? 'Moderate' : 'Caution'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="cost-to-create">
+                                                            <div className="cost-label">COST TO CREATE</div>
+                                                            <div className="cost-val">~₹{Math.round(food.price * 0.4)}</div>
                                                         </div>
                                                     </div>
                                                     
-                                                    <button className="btn btn-primary" style={{marginTop: '12px', width: '100%'}} onClick={() => addToCart(food)}>
+                                                    <button className="btn btn-primary" style={{marginTop: '24px', width: '100%', borderRadius: '16px', fontWeight: 700}} onClick={() => addToCart(food)}>
                                                         Add to Order +
                                                     </button>
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                ) : (
+                                    <div style={{textAlign: 'center', padding: '60px 0', color: 'var(--on-surface-dim)'}}>
+                                        <div style={{fontSize: '4rem', marginBottom: '20px'}}>🔍</div>
+                                        <h3>No matches found</h3>
+                                        <p>Try adjusting your filters or budget.</p>
                                     </div>
                                 )}
                             </div>

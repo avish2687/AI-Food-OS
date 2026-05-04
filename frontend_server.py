@@ -27,7 +27,7 @@ async def catch_all(path: str):
     return FileResponse(os.path.join(FRONTEND_DIR, "landing.html"))
 
 def run_frontend():
-    print(f"🚀 Starting [FRONTEND] Server on http://localhost:5000")
+    print(f"Starting [FRONTEND] Server on http://localhost:5000")
     uvicorn.run(app, host="0.0.0.0", port=5000, log_level="error")
 
 if __name__ == "__main__":

@@ -1,10 +1,17 @@
 :root {
-    --auth-primary: #df8947;
-    --auth-bg: #000000;
+    --auth-primary: #FF7043;
+    --auth-bg: #F8F5F2;
     --auth-input-bg: #ffffff;
-    --auth-text-sub: #888888;
+    --auth-text-sub: #6B6B6B;
     --auth-font: 'Inter', sans-serif;
     --auth-display: 'Space Grotesk', sans-serif;
+    --radius: 16px;
+}
+
+[data-theme="dark"], .dark-mode {
+    --auth-bg: #0A0A0A;
+    --auth-input-bg: #1A1A1A;
+    --auth-text-sub: #A0A0A0;
 }
 
 * {
@@ -66,7 +73,12 @@ body {
     justify-content: center;
     padding: 60px;
     background: var(--auth-bg);
+    color: var(--on-surface, #333);
     animation: fadeIn 1.2s ease-out;
+}
+
+.dark-mode .auth-content {
+    color: #fff;
 }
 
 .auth-form-wrapper {
@@ -205,15 +217,26 @@ body {
     width: 100%;
     padding: 18px 18px 18px 52px;
     background: var(--auth-input-bg);
-    border: none;
-    border-radius: 8px;
+    border: 1.5px solid rgba(0,0,0,0.05);
+    border-radius: var(--radius);
     font-size: 1rem;
-    color: #333;
+    color: inherit;
     outline: none;
+    transition: all 0.3s ease;
+}
+
+.dark-mode .auth-input {
+    border: 1.5px solid rgba(255,255,255,0.05);
+}
+
+.auth-input:focus {
+    border-color: var(--auth-primary);
+    box-shadow: 0 0 0 4px rgba(255,112,67,0.1);
 }
 
 .auth-input::placeholder {
-    color: #bbb;
+    color: var(--auth-text-sub);
+    opacity: 0.5;
 }
 
 .remember-me {

@@ -50,7 +50,7 @@ async def api_status():
 
 
 def run_backend():
-    print(f"📡 Starting [BACKEND] Server on http://localhost:8000")
+    print(f"Starting [BACKEND] Server on http://localhost:8000")
     import uvicorn
     uvicorn.run(
         "main:app",
@@ -61,20 +61,19 @@ def run_backend():
     )
 
 if __name__ == "__main__":
-    from multiprocessing import Process
-    from frontend_server import run_frontend
+    import subprocess
+    import sys
     
-    # Start Backend and Frontend as separate processes
-    backend_proc = Process(target=run_backend)
-    frontend_proc = Process(target=run_frontend)
-    
-    backend_proc.start()
-    frontend_proc.start()
+    # Start Frontend as a separate subprocess
+    print("Starting frontend server...")
+    frontend_process = subprocess.Popen([sys.executable, "frontend_server.py"])
     
     try:
-        backend_proc.join()
-        frontend_proc.join()
+        # Start Backend in the current process
+        run_backend()
     except KeyboardInterrupt:
+        pass
+    finally:
         print("\n🛑 Shutting down servers...")
-        backend_proc.terminate()
-        frontend_proc.terminate()
+        frontend_process.terminate()
+        frontend_process.wait()

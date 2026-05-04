@@ -21,7 +21,7 @@
         <div class="container">
             <a href="/index.html" class="nav-logo" id="nav-logo">
                 <div class="logo-icon">🍴</div>
-                AI Food<span class="logo-accent">OS</span>
+                AI Food <span class="logo-accent">OS</span>
             </a>
 
             <div class="nav-links">
@@ -30,19 +30,17 @@
                 <a href="/health.html" id="nav-health">Health</a>
                 <a href="/orders.html" id="nav-orders">Orders</a>
                 <a href="/profile.html" id="nav-profile">Profile</a>
-                <a href="/settings.html" id="nav-settings" class="active" style="font-size: 1.1rem;">⚙</a>
             </div>
 
             <div class="nav-actions">
-                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
-                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
-                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
-                        style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:0.9rem;">💳</span>
+                <button class="btn-icon-circle active" id="nav-settings-btn" onclick="location.href='/settings.html'" title="Settings">⚙</button>
+                <button class="btn-icon-circle" id="theme-toggle" title="Toggle Theme">🌓</button>
+                <div class="btn-pro" id="nav-pro-badge" onclick="location.href='/profile.html#pricing'" style="cursor: pointer;">⚡ PRO</div>
+                <div class="wallet-pill" id="nav-wallet-pill" onclick="location.href='/profile.html'" style="cursor: pointer;">
+                    <span>💳</span>
                     <span id="nav-wallet-balance">–</span>
-                </button>
-                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
-                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+                </div>
+                <button class="btn-icon-circle" id="nav-logout-btn" onclick="logout()" title="Sign out" style="color: var(--on-surface);">⏻</button>
             </div>
         </div>
     </nav>
@@ -53,6 +51,7 @@
     <!-- GLOBAL SCRIPTS -->
     <script>
         const API_BASE = 'http://localhost:8000';
+        
         async function logout() {
             try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
             window.location.href = '/landing.html';
@@ -65,10 +64,20 @@
                     const data = await r.json();
                     const bal = data.wallet_balance || 0;
                     document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    const proBadge = document.getElementById('nav-pro-badge');
+                    if (data.subscription_tier === 'free') {
+                        proBadge.textContent = '⚡ Upgrade';
+                        proBadge.style.background = 'var(--surface-highest)';
+                        proBadge.style.color = 'var(--on-surface)';
+                    } else {
+                        proBadge.textContent = '⚡ PRO';
+                        proBadge.style.background = 'var(--accent-pro)';
+                        proBadge.style.color = '#000';
+                    }
                 }
             } catch(e) {}
         }
-        
+
         // Theme Toggle Logic
         const themeToggle = document.getElementById('theme-toggle');
         const body = document.body;

@@ -28,7 +28,7 @@
         <div class="container">
             <a href="/index.html" class="nav-logo" id="nav-logo">
                 <div class="logo-icon">🍴</div>
-                AI Food<span class="logo-accent">OS</span>
+                AI Food <span class="logo-accent">OS</span>
             </a>
 
             <div class="nav-links">
@@ -37,19 +37,17 @@
                 <a href="/health.html" id="nav-health">Health</a>
                 <a href="/orders.html" id="nav-orders">Orders</a>
                 <a href="/profile.html" id="nav-profile">Profile</a>
-                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
             </div>
 
             <div class="nav-actions">
-                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
-                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
-                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
-                        style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:0.9rem;">💳</span>
+                <button class="btn-icon-circle" id="nav-settings-btn" onclick="location.href='/settings.html'" title="Settings">⚙</button>
+                <button class="btn-icon-circle" id="theme-toggle" title="Toggle Theme">🌓</button>
+                <div class="btn-pro" id="nav-pro-badge" onclick="location.href='/profile.html#pricing'" style="cursor: pointer;">⚡ PRO</div>
+                <div class="wallet-pill" id="nav-wallet-pill" onclick="location.href='/profile.html'" style="cursor: pointer;">
+                    <span>💳</span>
                     <span id="nav-wallet-balance">–</span>
-                </button>
-                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
-                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+                </div>
+                <button class="btn-icon-circle" id="nav-logout-btn" onclick="logout()" title="Sign out" style="color: var(--on-surface);">⏻</button>
             </div>
         </div>
     </nav>
@@ -62,9 +60,7 @@
         const API_BASE = 'http://localhost:8000';
         
         async function logout() {
-            try {
-                await fetch(API_BASE + '/api/auth/signout', { method: 'POST' });
-            } catch(e) {}
+            try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
             window.location.href = '/landing.html';
         }
 
@@ -75,9 +71,15 @@
                     const data = await r.json();
                     const bal = data.wallet_balance || 0;
                     document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    const proBadge = document.getElementById('nav-pro-badge');
                     if (data.subscription_tier === 'free') {
-                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
-                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                        proBadge.textContent = '⚡ Upgrade';
+                        proBadge.style.background = 'var(--surface-highest)';
+                        proBadge.style.color = 'var(--on-surface)';
+                    } else {
+                        proBadge.textContent = '⚡ PRO';
+                        proBadge.style.background = 'var(--accent-pro)';
+                        proBadge.style.color = '#000';
                     }
                 }
             } catch(e) {}
@@ -229,7 +231,7 @@
 
             async function fetchProfile() {
                 try {
-                    const res = await fetch('http://localhost:8000/api/profile');
+                    const res = await fetch('http://localhost:8000/api/profile', { credentials: 'include' });
                     if(res.ok) {
                         const data = await res.json();
                         setWalletBalance(data.wallet_balance || 0);
@@ -315,64 +317,105 @@
                     };
 
                     if (selectedPayment === 'upi' || selectedPayment === 'card') {
+                        // Step 1: Create Razorpay order on backend
                         const rz_res = await fetch('http://localhost:8000/api/razorpay/create_order', {
                             method: 'POST',
+                            credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ amount: grandTotal, receipt: 'rcptid_' + Date.now() })
                         });
                         const rz_data = await rz_res.json();
-                        
+
                         if (rz_data.is_simulated) {
-                            console.log("Simulating Razorpay Payment...", rz_data);
-                            await new Promise(r => setTimeout(r, 1000));
-                            // Save order in backend too
+                            // ── SIMULATED MODE (no Razorpay keys configured) ──
+                            // Show a Razorpay-style confirmation dialog, then finalize
+                            setPlacing(false);
+                            const confirmed = window.confirm(
+                                `🔐 Payment Gateway (Test Mode)\n\n` +
+                                `Amount: ₹${grandTotal}\n` +
+                                `Order: ${rz_data.id}\n` +
+                                `Method: ${selectedPayment.toUpperCase()}\n\n` +
+                                `Click OK to simulate a successful payment and place your order.`
+                            );
+                            if (!confirmed) return;
+                            setPlacing(true);
+
+                            // Save order in backend
                             await fetch('http://localhost:8000/api/order', {
                                 method: 'POST',
+                                credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(orderPayload)
                             });
-                            await finalizeOrder(rz_data.id, "simulated_pay_" + Date.now());
+                            await finalizeOrder(rz_data.id, 'simulated_pay_' + Date.now());
                             return;
                         }
 
+                        // ── LIVE RAZORPAY MODAL ──
                         const options = {
-                            "key": rz_data.key || "",
-                            "amount": rz_data.amount,
-                            "currency": "INR",
-                            "name": "AI Smart Food OS",
-                            "description": "Your perfect meal order",
-                            "order_id": rz_data.id,
-                            "handler": async function (response) {
+                            key: rz_data.key || rz_data.key_id || "",
+                            amount: rz_data.amount,
+                            currency: "INR",
+                            name: "AI Smart Food OS",
+                            description: `Your meal order — ₹${grandTotal}`,
+                            image: "https://via.placeholder.com/80x80.png?text=🍴",
+                            order_id: rz_data.id,
+                            handler: async function (response) {
+                                // Payment succeeded — save order
                                 await fetch('http://localhost:8000/api/order', {
                                     method: 'POST',
+                                    credentials: 'include',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({...orderPayload, razor_payment_id: response.razorpay_payment_id})
+                                    body: JSON.stringify({
+                                        ...orderPayload,
+                                        razor_payment_id: response.razorpay_payment_id,
+                                        razor_order_id: response.razorpay_order_id,
+                                        razor_signature: response.razorpay_signature
+                                    })
                                 });
                                 await finalizeOrder(rz_data.id, response.razorpay_payment_id);
                             },
-                            "prefill": { "name": "Food OS User" },
-                            "theme": { "color": "#ff4500" }
+                            modal: {
+                                ondismiss: function() {
+                                    setPlacing(false);
+                                }
+                            },
+                            prefill: { name: "Food OS User", contact: "", email: "" },
+                            notes: { delivery_address: `${address.house}, ${address.street}` },
+                            theme: { color: "#ff4500" }
                         };
-                        
-                        const rzp1 = new Razorpay(options);
-                        rzp1.open();
-                        
+
+                        const rzp = new Razorpay(options);
+                        rzp.on('payment.failed', function(resp) {
+                            alert('Payment failed: ' + (resp.error?.description || 'Unknown error'));
+                            setPlacing(false);
+                        });
+                        rzp.open();
+                        setPlacing(false); // Re-enable button while modal is open
+
                     } else {
-                        // Regular Order (Wallet/COD)
+                        // Wallet / COD
                         const res = await fetch('http://localhost:8000/api/order', {
                             method: 'POST',
+                            credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(orderPayload)
                         });
                         if (res.ok) {
-                            await finalizeOrder(null, "method_" + selectedPayment);
+                            await finalizeOrder(null, 'method_' + selectedPayment);
                         } else {
-                            const err = await res.json();
-                            alert(err.detail || "Order failed");
+                            const err = await res.json().catch(() => ({}));
+                            if (res.status === 401) {
+                                alert('⚠️ You must be logged in to place an order. Please sign in first.');
+                                window.location.href = '/signin.html';
+                            } else {
+                                alert(err.detail || 'Order failed. Please try again.');
+                            }
                             setPlacing(false);
                         }
                     }
                 } catch(e) {
+                    console.error('Order error:', e);
                     alert('Network error. Please try again.');
                     setPlacing(false);
                 }

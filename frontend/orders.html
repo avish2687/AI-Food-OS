@@ -21,7 +21,7 @@
         <div class="container">
             <a href="/index.html" class="nav-logo" id="nav-logo">
                 <div class="logo-icon">🍴</div>
-                AI Food<span class="logo-accent">OS</span>
+                AI Food <span class="logo-accent">OS</span>
             </a>
 
             <div class="nav-links">
@@ -30,19 +30,17 @@
                 <a href="/health.html" id="nav-health">Health</a>
                 <a href="/orders.html" id="nav-orders" class="active">Orders</a>
                 <a href="/profile.html" id="nav-profile">Profile</a>
-                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
             </div>
 
             <div class="nav-actions">
-                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
-                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
-                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
-                        style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:0.9rem;">💳</span>
+                <button class="btn-icon-circle" id="nav-settings-btn" onclick="location.href='/settings.html'" title="Settings">⚙</button>
+                <button class="btn-icon-circle" id="theme-toggle" title="Toggle Theme">🌓</button>
+                <div class="btn-pro" id="nav-pro-badge" onclick="location.href='/profile.html#pricing'" style="cursor: pointer;">⚡ PRO</div>
+                <div class="wallet-pill" id="nav-wallet-pill" onclick="location.href='/profile.html'" style="cursor: pointer;">
+                    <span>💳</span>
                     <span id="nav-wallet-balance">–</span>
-                </button>
-                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
-                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+                </div>
+                <button class="btn-icon-circle" id="nav-logout-btn" onclick="logout()" title="Sign out" style="color: var(--on-surface);">⏻</button>
             </div>
         </div>
     </nav>
@@ -53,6 +51,7 @@
     <!-- GLOBAL SCRIPTS -->
     <script>
         const API_BASE = 'http://localhost:8000';
+        
         async function logout() {
             try { await fetch(API_BASE + '/api/auth/signout', { method: 'POST' }); } catch(e) {}
             window.location.href = '/landing.html';
@@ -65,14 +64,20 @@
                     const data = await r.json();
                     const bal = data.wallet_balance || 0;
                     document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    const proBadge = document.getElementById('nav-pro-badge');
                     if (data.subscription_tier === 'free') {
-                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
-                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                        proBadge.textContent = '⚡ Upgrade';
+                        proBadge.style.background = 'var(--surface-highest)';
+                        proBadge.style.color = 'var(--on-surface)';
+                    } else {
+                        proBadge.textContent = '⚡ PRO';
+                        proBadge.style.background = 'var(--accent-pro)';
+                        proBadge.style.color = '#000';
                     }
                 }
             } catch(e) {}
         }
-        
+
         // Theme Toggle Logic
         const themeToggle = document.getElementById('theme-toggle');
         const body = document.body;
@@ -96,9 +101,7 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [sortBy, setSortBy] = useState('newest');
             const [expandedOrder, setExpandedOrder] = useState(null);
-            const [ratingModal, setRatingModal] = useState(null);
             const [receiptOrder, setReceiptOrder] = useState(null);
-            const [ratingStars, setRatingStars] = useState(0);
 
             useEffect(() => {
                 fetchOrders();
@@ -114,7 +117,6 @@
                         throw new Error('Failed');
                     }
                 } catch(e) {
-                    // Failover to demo data
                     const statuses = ['delivered', 'delivered', 'placed', 'cancelled', 'delivered'];
                     const moods = ['happy', 'stressed', 'gym', 'lazy', 'adventurous'];
                     const dummy = Array.from({ length: 8 }, (_, i) => ({
@@ -126,7 +128,11 @@
                         delivery_boy_name: ['Rohan Kumar', 'Aakash Singh', 'Priya Sharma'][i % 3],
                         avg_health_score: Math.round(Math.random() * 50 + 40),
                         payment_method: ['upi', 'card', 'wallet'][i % 3],
-                        items: [],
+                        delivery_address: '402 Skyline Towers, Bandra West, Mumbai',
+                        items: [
+                            { name: 'Grilled Chicken Bowl', qty: 1, price: 220 },
+                            { name: 'Mango Lassi', qty: 2, price: 60 }
+                        ],
                         rated: i % 2 === 0
                     }));
                     setOrders(dummy);
@@ -163,10 +169,187 @@
             }, [orders]);
 
             const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const getMoodEmoji = (mood) => { const m = { happy: '😊', stressed: '😫', gym: '🏋️', lazy: '🛋️', adventurous: '🌋', tired: '😴' }; return m[mood] || ''; };
+            const paymentIcon = (m) => ({ upi: '📱', card: '💳', wallet: '🪙', cod: '💵' }[m] || '💳');
+            const paymentLabel = (m) => ({ upi: 'UPI', card: 'Credit / Debit Card', wallet: 'Food Wallet', cod: 'Cash on Delivery' }[m] || (m || 'Online'));
+
+            function ReceiptModal({ order, onClose }) {
+                const items = order.items || [];
+                const subtotal = items.length > 0
+                    ? items.reduce((acc, i) => acc + ((i.price || 0) * (i.qty || 1)), 0)
+                    : Math.round((order.amount || 0) / 1.05);
+                const gst = Math.round(subtotal * 0.05);
+                const totalPaid = order.amount || (subtotal + gst);
+
+                function handlePrint() {
+                    const content = document.getElementById('receipt-print-zone').innerHTML;
+                    const w = window.open('', '_blank', 'width=420,height=720');
+                    w.document.write(`<html><head><title>Receipt - AI Smart Food OS</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body { font-family: 'Inter', sans-serif; padding: 24px; font-size: 13px; color: #111; max-width: 380px; margin: auto; }
+                        .row { display:flex; justify-content:space-between; margin: 5px 0; }
+                        .bold { font-weight: 800; }
+                        .dim { color: #888; }
+                        .tag { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:#888; margin-bottom:2px; }
+                        .meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#f5f5f5; padding:14px; border-radius:10px; margin:14px 0; }
+                        .item-row { display:flex; justify-content:space-between; background:#f5f5f5; padding:9px 12px; border-radius:8px; margin:5px 0; }
+                        .header { text-align:center; padding-bottom:12px; border-bottom:1px dashed #ccc; margin-bottom:12px; }
+                        .total-line { display:flex; justify-content:space-between; font-weight:800; font-size:1.1rem; color:#ff4500; border-top:2px solid #eee; padding-top:10px; margin-top:6px; }
+                        .footer { text-align:center; margin-top:18px; color:#888; font-size:0.78rem; }
+                    </style></head><body>${content}</body></html>`);
+                    w.document.close();
+                    setTimeout(() => { w.print(); w.close(); }, 400);
+                }
+
+                return (
+                    <div onClick={(e) => e.target.id === 'receipt-overlay' && onClose()}
+                         id="receipt-overlay"
+                         style={{
+                             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+                             zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                             backdropFilter: 'blur(8px)', padding: '16px',
+                             animation: 'fadeIn 0.2s ease'
+                         }}>
+                        <style>{`
+                            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                            @keyframes slideUp { from { opacity: 0; transform: translateY(40px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+                        `}</style>
+                        <div style={{
+                            background: 'var(--surface)', borderRadius: '20px',
+                            width: '100%', maxWidth: '460px', maxHeight: '90vh',
+                            overflowY: 'auto', boxShadow: '0 40px 100px rgba(0,0,0,0.5)',
+                            animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)'
+                        }}>
+                            <div style={{
+                                background: 'linear-gradient(135deg, #ff4500 0%, #ff6b35 100%)',
+                                padding: '28px', borderRadius: '20px 20px 0 0', position: 'relative'
+                            }}>
+                                <button onClick={onClose} style={{
+                                    position: 'absolute', top: '16px', right: '16px',
+                                    background: 'rgba(255,255,255,0.25)', border: 'none',
+                                    borderRadius: '50%', width: '34px', height: '34px',
+                                    color: 'white', cursor: 'pointer', fontSize: '1.1rem',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 700, transition: 'background 0.2s'
+                                }}>✕</button>
+                                <div style={{ fontSize: '2.2rem', marginBottom: '6px' }}>🧾</div>
+                                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>AI Smart Food OS</div>
+                                <div style={{ color: 'white', fontWeight: 800, fontSize: '1.4rem', marginTop: '2px' }}>Order Receipt</div>
+                            </div>
+
+                            <div style={{ padding: '24px 28px' }}>
+                                <div id="receipt-print-zone">
+                                    <div className="header" style={{ textAlign: 'center', paddingBottom: '12px', borderBottom: '1px dashed var(--outline-variant)', marginBottom: '16px' }}>
+                                        <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>🍴 AI Food OS</div>
+                                        <div style={{ fontSize: '0.78rem', color: 'var(--on-surface-dim)' }}>Your smart food companion — aifoodos.com</div>
+                                    </div>
+
+                                    <div style={{ background: 'var(--surface-high)', borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Order ID</div>
+                                            <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>#{order.id.slice(-8).toUpperCase()}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Date & Time</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.78rem' }}>{formatDate(order.created_at)}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Payment</div>
+                                            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{paymentIcon(order.payment_method)} {paymentLabel(order.payment_method)}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Status</div>
+                                            <span style={{
+                                                padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                                                background: order.status === 'delivered' ? '#d1fae5' : order.status === 'cancelled' ? '#fee2e2' : '#fef3c7',
+                                                color: order.status === 'delivered' ? '#065f46' : order.status === 'cancelled' ? '#991b1b' : '#92400e'
+                                            }}>
+                                                {order.status === 'delivered' ? '✅ Delivered' : order.status === 'cancelled' ? '✕ Cancelled' : '🔄 ' + order.status}
+                                            </span>
+                                        </div>
+                                        {order.delivery_address && (
+                                            <div style={{ gridColumn: '1/-1', paddingTop: '12px', borderTop: '1px solid var(--outline-variant)' }}>
+                                                <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Delivered To</div>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 500 }}>📍 {order.delivery_address}</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--on-surface-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+                                            Items Ordered
+                                        </div>
+                                        {items.length > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {items.map((item, idx) => (
+                                                    <div key={idx} style={{
+                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                        padding: '11px 14px', background: 'var(--surface-high)', borderRadius: '10px'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{item.name || item.food_id || 'Food Item'}</div>
+                                                            <div style={{ fontSize: '0.73rem', color: 'var(--on-surface-dim)' }}>Qty: {item.qty} × ₹{item.price || 0}</div>
+                                                        </div>
+                                                        <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.95rem' }}>₹{(item.price || 0) * (item.qty || 1)}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ padding: '14px', background: 'var(--surface-high)', borderRadius: '10px', fontSize: '0.82rem', color: 'var(--on-surface-dim)', textAlign: 'center' }}>
+                                                Item details not available for this order
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ borderTop: '2px dashed var(--outline-variant)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--on-surface-dim)' }}>
+                                            <span>Subtotal</span><span>₹{subtotal}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                            <span style={{ color: 'var(--on-surface-dim)' }}>🎉 Delivery Fee</span>
+                                            <span style={{ color: '#16a34a', fontWeight: 700 }}>FREE</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--on-surface-dim)' }}>
+                                            <span>GSTIN (5%)</span><span>₹{gst}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '1.2rem', color: 'var(--primary)', borderTop: '2px solid var(--outline-variant)', paddingTop: '12px', marginTop: '4px' }}>
+                                            <span>Total Paid</span><span>₹{totalPaid}</span>
+                                        </div>
+                                    </div>
+
+                                    {order.delivery_boy_name && (
+                                        <div style={{ marginTop: '20px', padding: '12px 16px', background: 'var(--surface-high)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            <div style={{ fontSize: '2rem' }}>🛵</div>
+                                            <div>
+                                                <div style={{ fontSize: '0.68rem', color: 'var(--on-surface-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Delivered By</div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{order.delivery_boy_name}</div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.76rem', color: 'var(--on-surface-dim)', lineHeight: 1.6 }}>
+                                        🔒 Secure RBI Compliant Payment<br />
+                                        Thank you for ordering with AI Smart Food OS! 🍴
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                                    <button className="btn btn-ghost" style={{ flex: 1, height: '46px' }} onClick={onClose}>Close</button>
+                                    <button className="btn btn-primary" style={{ flex: 2, height: '46px' }} onClick={handlePrint}>
+                                        🖨️ Print / Save Receipt
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div>
+                    {receiptOrder && <ReceiptModal order={receiptOrder} onClose={() => setReceiptOrder(null)} />}
+
                     <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '32px 0'}}>
                         <div className="container">
                             <span className="section-tag">📋 Your Orders</span>
@@ -219,11 +402,12 @@
 
                         <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
                             {filteredOrders.map(order => (
-                                <div key={order.id} className="card" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                                     style={{cursor: 'pointer', border: expandedOrder === order.id ? '1px solid var(--primary)' : '1px solid transparent'}}>
+                                <div key={order.id} className="card"
+                                     onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                                     style={{cursor: 'pointer', border: expandedOrder === order.id ? '1px solid var(--primary)' : '1px solid transparent', transition: 'border 0.2s'}}>
                                     <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                                         <div style={{width: '52px', height: '52px', background: 'var(--surface-high)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem'}}>
-                                            {order.status === 'delivered' ? '✅' : order.status === 'cancelled' ? '✕' : '🔄'}
+                                            {order.status === 'delivered' ? '✅' : order.status === 'cancelled' ? '❌' : '🔄'}
                                         </div>
                                         <div style={{flex: 1}}>
                                             <div style={{fontWeight: 700}}>Order #{order.id.slice(-6).toUpperCase()}</div>
@@ -231,15 +415,25 @@
                                         </div>
                                         <div style={{textAlign: 'right'}}>
                                             <div style={{fontSize: '1.3rem', fontWeight: 700, color: 'var(--primary)'}}>₹{order.amount}</div>
-                                            <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>Score: {order.avg_health_score}/100</div>
+                                            <div style={{fontSize: '0.75rem', color: 'var(--on-surface-dim)'}}>Score: {order.avg_health_score || '—'}/100</div>
                                         </div>
                                     </div>
                                     {expandedOrder === order.id && (
                                         <div style={{marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--outline-variant)'}}>
-                                            <p style={{fontSize: '0.85rem', color: 'var(--on-surface-dim)'}}>Items details syncing...</p>
-                                            <div style={{display: 'flex', gap: '10px', marginTop: '16px'}}>
-                                                <button className="btn btn-primary btn-sm" onClick={(e) => {e.stopPropagation(); location.href='/menu.html';}}>🔁 Reorder</button>
-                                                <button className="btn btn-ghost btn-sm" onClick={(e) => {e.stopPropagation(); setReceiptOrder(order);}}>📄 Receipt</button>
+                                            <div style={{fontSize: '0.82rem', color: 'var(--on-surface-dim)', marginBottom: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap'}}>
+                                                <span>{paymentIcon(order.payment_method)} {paymentLabel(order.payment_method)}</span>
+                                                {order.delivery_address && <span>📍 {order.delivery_address}</span>}
+                                                {order.delivery_boy_name && <span>🛵 {order.delivery_boy_name}</span>}
+                                            </div>
+                                            <div style={{display: 'flex', gap: '10px', marginTop: '8px'}}>
+                                                <button className="btn btn-primary btn-sm"
+                                                    onClick={(e) => { e.stopPropagation(); location.href='/menu.html'; }}>
+                                                    🔁 Reorder
+                                                </button>
+                                                <button className="btn btn-ghost btn-sm"
+                                                    onClick={(e) => { e.stopPropagation(); setReceiptOrder(order); }}>
+                                                    📄 View Receipt
+                                                </button>
                                             </div>
                                         </div>
                                     )}

@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Health Analytics — AI Smart Food OS</title>
-    <meta name="description" content="Your personal bio-sync dashboard — track BMI, TDEE, macros, diabetes risk and 30-day health forecast.">
+    <meta name="description" content="Track your health metrics, macros, BMI and calorie trends with AI-powered analytics.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=2">
-    
-    <!-- React via CDN -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/health.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -21,7 +21,7 @@
         <div class="container">
             <a href="/index.html" class="nav-logo" id="nav-logo">
                 <div class="logo-icon">🍴</div>
-                AI Food<span class="logo-accent">OS</span>
+                AI Food <span class="logo-accent">OS</span>
             </a>
 
             <div class="nav-links">
@@ -30,25 +30,22 @@
                 <a href="/health.html" id="nav-health" class="active">Health</a>
                 <a href="/orders.html" id="nav-orders">Orders</a>
                 <a href="/profile.html" id="nav-profile">Profile</a>
-                <a href="/settings.html" id="nav-settings" style="font-size: 1.1rem;">⚙</a>
             </div>
 
             <div class="nav-actions">
-                <button class="btn btn-ghost btn-icon" id="theme-toggle" title="Toggle Theme" style="font-size: 1.1rem;">🌓</button>
-                <span class="btn btn-pro" id="nav-pro-badge">⚡ PRO</span>
-                <button class="btn btn-ghost btn-sm" id="nav-wallet-btn" onclick="location.href='/profile.html'"
-                        style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:0.9rem;">💳</span>
+                <button class="btn-icon-circle" id="nav-settings-btn" onclick="location.href='/settings.html'" title="Settings">⚙</button>
+                <button class="btn-icon-circle" id="theme-toggle" title="Toggle Theme">🌓</button>
+                <div class="btn-pro" id="nav-pro-badge" onclick="location.href='/profile.html#pricing'" style="cursor: pointer;">⚡ PRO</div>
+                <div class="wallet-pill" id="nav-wallet-pill" onclick="location.href='/profile.html'" style="cursor: pointer;">
+                    <span>💳</span>
                     <span id="nav-wallet-balance">–</span>
-                </button>
-                <button class="btn btn-ghost btn-icon" id="nav-logout-btn" onclick="logout()" title="Sign out"
-                        style="font-size:1.1rem; padding: 8px 12px;">⏻</button>
+                </div>
+                <button class="btn-icon-circle" id="nav-logout-btn" onclick="logout()" title="Sign out" style="color: var(--on-surface);">⏻</button>
             </div>
         </div>
     </nav>
 
-    <!-- REACT MOUNT POINT -->
-    <main id="react-health-root"></main>
+    <main id="health-root"></main>
 
     <!-- GLOBAL SCRIPTS -->
     <script>
@@ -66,9 +63,15 @@
                     const data = await r.json();
                     const bal = data.wallet_balance || 0;
                     document.getElementById('nav-wallet-balance').textContent = '₹' + parseFloat(bal).toFixed(0);
+                    const proBadge = document.getElementById('nav-pro-badge');
                     if (data.subscription_tier === 'free') {
-                        document.getElementById('nav-pro-badge').textContent = '⬆ Upgrade';
-                        document.getElementById('nav-pro-badge').onclick = () => location.href = '/profile.html#pricing';
+                        proBadge.textContent = '⚡ Upgrade';
+                        proBadge.style.background = 'var(--surface-highest)';
+                        proBadge.style.color = 'var(--on-surface)';
+                    } else {
+                        proBadge.textContent = '⚡ PRO';
+                        proBadge.style.background = 'var(--accent-pro)';
+                        proBadge.style.color = '#000';
                     }
                 }
             } catch(e) {}
@@ -86,239 +89,431 @@
         document.addEventListener('DOMContentLoaded', loadNavInfo);
     </script>
 
-    <!-- REACT HEALTH COMPONENT -->
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
 
-        function HealthApp() {
-            const [profile, setProfile] = useState({ 
-                height_cm: 175, 
-                weight_kg: 70, 
-                age: 25, 
-                fitness_goal: 'maintain' 
-            });
-            const [activityLevel, setActivityLevel] = useState('1.55');
-            const [streak, setStreak] = useState(7);
-            const [loading, setLoading] = useState(true);
+const WEEK = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HEALTH_SCORES = [62, 78, 55, 85, 71, 43, 88];
+const CALORIE_DATA  = [1820, 2100, 1650, 2250, 1980, 2400, 1750];
+const MACRO_HISTORY = {
+    protein: [58, 72, 48, 88, 65, 40, 95],
+    carbs:   [210, 195, 230, 185, 220, 260, 178],
+    fat:     [42, 38, 51, 33, 45, 58, 30],
+};
 
-            useEffect(() => {
-                fetchProfile();
-            }, []);
+function HealthApp() {
+    const [profile, setProfile] = useState({ height_cm: 175, weight_kg: 70, age: 25, fitness_goal: 'maintain' });
+    const [activity, setActivity] = useState('1.55');
+    const [streak] = useState(7);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [saved, setSaved] = useState(false);
 
-            async function fetchProfile() {
-                try {
-                    const r = await fetch('http://localhost:8000/api/profile');
-                    if (r.ok) {
-                        const d = await r.json();
-                        setProfile(prev => ({
-                            ...prev,
-                            height_cm: d.height_cm || 175,
-                            weight_kg: d.weight_kg || 70,
-                            age: d.age || 25,
-                            fitness_goal: d.fitness_goal || 'maintain'
-                        }));
+    const weekScoreRef = useRef(null);
+    const macroDonutRef = useRef(null);
+    const calLineRef    = useRef(null);
+    const bmiGaugeRef   = useRef(null);
+    const chartInstances = useRef({});
+
+    useEffect(() => {
+        fetch('http://localhost:8000/api/profile').then(r => r.ok ? r.json() : null).then(d => {
+            if (d) setProfile(p => ({...p, height_cm: d.height_cm||175, weight_kg: d.weight_kg||70, age: d.age||25, fitness_goal: d.fitness_goal||'maintain'}));
+        }).catch(()=>{}).finally(()=>setLoading(false));
+    }, []);
+
+    const bmi = useMemo(() => {
+        const h = profile.height_cm / 100;
+        return (profile.weight_kg / (h*h)).toFixed(1);
+    }, [profile.height_cm, profile.weight_kg]);
+
+    const bmiCat = useMemo(() => {
+        const b = parseFloat(bmi);
+        if (b < 18.5) return {label:'Underweight', color:'#3b82f6'};
+        if (b < 25)   return {label:'Healthy ✅',  color:'#22c55e'};
+        if (b < 30)   return {label:'Overweight',  color:'#f59e0b'};
+        return {label:'Obese', color:'#ef4444'};
+    }, [bmi]);
+
+    const tdee = useMemo(() => {
+        const bmr = 10*profile.weight_kg + 6.25*profile.height_cm - 5*profile.age + 5;
+        return Math.round(bmr * parseFloat(activity));
+    }, [profile, activity]);
+
+    const proteinTarget = useMemo(() => Math.round(profile.weight_kg * (profile.fitness_goal==='gain_muscle' ? 2.2 : 1.6)), [profile]);
+    const carbTarget    = useMemo(() => Math.round(tdee * 0.5 / 4), [tdee]);
+    const fatTarget     = useMemo(() => Math.round(tdee * 0.3 / 9), [tdee]);
+
+    const diabetesRisk = useMemo(() => {
+        const b = parseFloat(bmi);
+        if (b >= 30) return {label:'High', color:'#ef4444'};
+        if (b >= 25) return {label:'Medium', color:'#f59e0b'};
+        return {label:'Low', color:'#22c55e'};
+    }, [bmi]);
+
+    const macros = {
+        calories: { current: 1580, target: tdee },
+        protein:  { current: 68,   target: proteinTarget },
+        carbs:    { current: 195,  target: carbTarget },
+        fat:      { current: 42,   target: fatTarget },
+    };
+
+    function destroyChart(key) {
+        if (chartInstances.current[key]) {
+            chartInstances.current[key].destroy();
+            delete chartInstances.current[key];
+        }
+    }
+
+    useEffect(() => {
+        if (loading) return;
+        // Week Health Score Bar Chart
+        if (weekScoreRef.current) {
+            destroyChart('week');
+            chartInstances.current['week'] = new Chart(weekScoreRef.current, {
+                type: 'bar',
+                data: {
+                    labels: WEEK,
+                    datasets: [{
+                        label: 'Health Score',
+                        data: HEALTH_SCORES,
+                        backgroundColor: HEALTH_SCORES.map(s => s >= 75 ? '#22c55e' : s >= 55 ? '#f59e0b' : '#ef4444'),
+                        borderRadius: 10,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` Score: ${c.raw}` } } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family: 'Poppins', size: 11 } } },
+                        x: { grid: { display: false }, ticks: { font: { family: 'Poppins', size: 11 } } }
                     }
-                } catch(e) {}
-                setLoading(false);
-            }
+                }
+            });
+        }
 
-            const bmi = useMemo(() => {
-                if (!profile.height_cm || !profile.weight_kg) return '–';
-                const h = profile.height_cm / 100;
-                return (profile.weight_kg / (h * h)).toFixed(1);
-            }, [profile.height_cm, profile.weight_kg]);
+        // Macro Donut
+        if (macroDonutRef.current) {
+            destroyChart('donut');
+            chartInstances.current['donut'] = new Chart(macroDonutRef.current, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Protein', 'Carbs', 'Fat'],
+                    datasets: [{
+                        data: [macros.protein.current * 4, macros.carbs.current * 4, macros.fat.current * 9],
+                        backgroundColor: ['#22c55e','#3b82f6','#f59e0b'],
+                        borderWidth: 0, hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '72%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Poppins', size: 11 }, padding: 16 } },
+                        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw} kcal` } }
+                    }
+                }
+            });
+        }
 
-            const bmiCategory = useMemo(() => {
-                const b = parseFloat(bmi);
-                if (isNaN(b)) return 'Enter measurements';
-                if (b < 18.5) return 'Underweight';
-                if (b < 25)   return 'Healthy ✅';
-                if (b < 30)   return 'Overweight';
-                return 'Obese 🔴';
-            }, [bmi]);
+        // Calorie Line Chart
+        if (calLineRef.current) {
+            destroyChart('cal');
+            chartInstances.current['cal'] = new Chart(calLineRef.current, {
+                type: 'line',
+                data: {
+                    labels: WEEK,
+                    datasets: [{
+                        label: 'Calories',
+                        data: CALORIE_DATA,
+                        borderColor: '#FF6B35',
+                        backgroundColor: 'rgba(255,107,53,0.08)',
+                        fill: true, tension: 0.4,
+                        pointBackgroundColor: '#FF6B35', pointRadius: 5, pointHoverRadius: 7,
+                    }, {
+                        label: `Target (${tdee})`,
+                        data: WEEK.map(() => tdee),
+                        borderColor: '#22c55e', borderDash: [6,4],
+                        borderWidth: 2, pointRadius: 0, fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { font: { family: 'Poppins', size: 11 } } } },
+                    scales: {
+                        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { family:'Poppins',size:11 } } },
+                        x: { grid: { display: false }, ticks: { font: { family:'Poppins',size:11 } } }
+                    }
+                }
+            });
+        }
 
-            const bmiColorClass = useMemo(() => {
-                const b = parseFloat(bmi);
-                if (isNaN(b)) return '';
-                if (b < 18.5 || b >= 30) return 'red';
-                if (b >= 25) return 'orange';
-                return 'green';
-            }, [bmi]);
+        // BMI Gauge (doughnut trick)
+        if (bmiGaugeRef.current) {
+            destroyChart('bmi');
+            const bmiVal = Math.min(parseFloat(bmi), 40);
+            const filled = ((bmiVal - 10) / 30) * 100;
+            chartInstances.current['bmi'] = new Chart(bmiGaugeRef.current, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [filled, 100 - filled],
+                        backgroundColor: [bmiCat.color, 'rgba(0,0,0,0.07)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '78%',
+                    rotation: -90, circumference: 180,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                }
+            });
+        }
 
-            const tdee = useMemo(() => {
-                if (!profile.weight_kg || !profile.height_cm || !profile.age) return 2000;
-                const bmr = 10 * profile.weight_kg + 6.25 * profile.height_cm - 5 * profile.age + 5;
-                return Math.round(bmr * parseFloat(activityLevel));
-            }, [profile, activityLevel]);
+        return () => { Object.keys(chartInstances.current).forEach(destroyChart); };
+    }, [loading, bmi, tdee]);
 
-            const proteinTarget = useMemo(() => {
-                if (!profile.weight_kg) return 120;
-                return Math.round(profile.weight_kg * (profile.fitness_goal === 'gain_muscle' ? 2.2 : 1.6));
-            }, [profile]);
+    async function saveHealth() {
+        try {
+            await fetch('http://localhost:8000/api/profile', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ height_cm: parseFloat(profile.height_cm), weight_kg: parseFloat(profile.weight_kg), age: parseInt(profile.age), fitness_goal: profile.fitness_goal })
+            });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+        } catch(e) {}
+    }
 
-            const diabetesRisk = useMemo(() => {
-                const b = parseFloat(bmi);
-                if (isNaN(b)) return 'Unknown';
-                if (b >= 30) return 'High';
-                if (b >= 25) return 'Medium';
-                return 'Low';
-            }, [bmi]);
+    const tabs = [
+        { id: 'overview', label: '📊 Overview' },
+        { id: 'macros',   label: '🥗 Macros' },
+        { id: 'calories', label: '🔥 Calories' },
+        { id: 'profile',  label: '⚙️ My Profile' },
+    ];
 
-            const weightForecast = useMemo(() => {
-                const map = { lose_weight: '-1.5 kg', gain_muscle: '+0.8 kg', maintain: '~0 kg', improve_health: '-0.5 kg' };
-                return map[profile.fitness_goal] || '~0 kg';
-            }, [profile.fitness_goal]);
-
-            async function saveHealth() {
-                try {
-                    await fetch('http://localhost:8000/api/profile', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            height_cm: parseFloat(profile.height_cm),
-                            weight_kg: parseFloat(profile.weight_kg),
-                            age: parseInt(profile.age),
-                            fitness_goal: profile.fitness_goal
-                        })
-                    });
-                    alert('✅ Health profile saved!');
-                } catch(e) {}
-            }
-
-            // Dummy History
-            const weekHistory = [
-                { label: 'Mon', score: 62 }, { label: 'Tue', score: 78 },
-                { label: 'Wed', score: 55 }, { label: 'Thu', score: 85 },
-                { label: 'Fri', score: 71 }, { label: 'Sat', score: 43 },
-                { label: 'Sun', score: 88 }
-            ];
-
-            const macros = {
-                calories: { current: 1240, target: tdee },
-                protein:  { current: 68, target: proteinTarget },
-                carbs:    { current: 145, target: Math.round(tdee * 0.5 / 4) },
-                fat:      { current: 38, target: Math.round(tdee * 0.3 / 9) }
-            };
-
-            return (
-                <div>
-                    <div style={{background: 'var(--surface-low)', borderBottom: '1px solid var(--outline-variant)', padding: '32px 0'}}>
-                        <div className="container">
-                            <span className="section-tag">🧬 Bio-Sync Intelligence</span>
-                            <div style={{display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px'}}>
-                                <h1 className="section-title">Your Health <span style={{color:'var(--secondary)'}}>Command Center</span></h1>
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                    <span className="badge badge-health">🔥 {streak} day streak</span>
-                                    <button className="btn btn-primary btn-sm" onClick={() => location.href='/menu.html'}>🍽️ Eat Smart Now</button>
-                                </div>
-                            </div>
-                        </div>
+    return (
+        <div className="h-page">
+            {/* PAGE HEADER MATCHING HOME AESTHETIC */}
+            <div style={{ padding: '40px 0 20px 0', backgroundColor: 'var(--bg)' }}>
+                <div className="container">
+                    <div style={{ color: '#795F50', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>
+                        🧬 Bio-Sync Intelligence
                     </div>
-
-                    <div className="container section-sm">
-                        <div className="grid-4" style={{marginBottom: '32px'}}>
-                            <div className="stat-widget">
-                                <div className="stat-label">Body Mass Index</div>
-                                <div className={`stat-value ${bmiColorClass}`}>{bmi}</div>
-                                <div style={{fontSize: '0.78rem', marginTop: '4px', color: bmiColorClass === 'green' ? 'var(--secondary)' : bmiColorClass === 'orange' ? 'var(--primary)' : 'var(--error)'}}>
-                                    {bmiCategory}
-                                </div>
-                            </div>
-                            <div className="stat-widget">
-                                <div className="stat-label">Daily Energy (TDEE)</div>
-                                <div className="stat-value orange">{tdee} kcal</div>
-                                <div style={{fontSize: '0.78rem', color: 'var(--on-surface-dim)', marginTop: '4px'}}>Your maintenance calories</div>
-                            </div>
-                            <div className="stat-widget">
-                                <div className="stat-label">Protein Target</div>
-                                <div className="stat-value green">{macros.protein.target}g</div>
-                                <div style={{fontSize: '0.78rem', color: 'var(--on-surface-dim)', marginTop: '4px'}}>per day for your goal</div>
-                            </div>
-                            <div className="stat-widget">
-                                <div className="stat-label">Diabetes Risk</div>
-                                <div className="stat-value" style={{color: diabetesRisk === 'High' ? 'var(--error)' : diabetesRisk === 'Medium' ? '#FFD700' : 'var(--secondary)'}}>
-                                    {diabetesRisk}
-                                </div>
-                                <div style={{fontSize: '0.78rem', color: 'var(--on-surface-dim)', marginTop: '4px'}}>
-                                    {diabetesRisk === 'Low' ? '✅ Within safe range' : '⚠️ Monitor sugar intake'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px'}}>
-                            <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
-                                <div className="card">
-                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '24px'}}>⚖️ BMI Gauge</h3>
-                                    <div className="grid-2" style={{gap: '16px'}}>
-                                        <div className="form-group">
-                                            <label className="form-label">Height (cm)</label>
-                                            <input className="form-input" type="number" value={profile.height_cm} onChange={e => setProfile({...profile, height_cm: e.target.value})} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="form-label">Weight (kg)</label>
-                                            <input className="form-input" type="number" value={profile.weight_kg} onChange={e => setProfile({...profile, weight_kg: e.target.value})} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="card">
-                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '24px'}}>📊 Daily Macro Targets</h3>
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                                        {Object.entries(macros).map(([key, data]) => (
-                                            <div key={key}>
-                                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px', textTransform:'capitalize'}}>
-                                                    <span style={{fontSize: '0.875rem', fontWeight: 600}}>{key}</span>
-                                                    <span style={{fontSize: '0.875rem', fontWeight: 700}}>{data.current} / {data.target}</span>
-                                                </div>
-                                                <div style={{height: '8px', background: 'var(--surface-highest)', borderRadius: '4px', overflow:'hidden'}}>
-                                                    <div style={{height:'100%', width: Math.min((data.current/data.target*100), 100)+'%', background:'var(--primary)'}}></div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                                <div className="card">
-                                    <h3 style={{fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '16px'}}>🧬 Quick Bio Profile</h3>
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
-                                        <div className="form-group">
-                                            <label className="form-label">Age</label>
-                                            <input className="form-input" type="number" value={profile.age} onChange={e => setProfile({...profile, age: e.target.value})} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="form-label">Fitness Goal</label>
-                                            <select className="form-input" value={profile.fitness_goal} onChange={e => setProfile({...profile, fitness_goal: e.target.value})}>
-                                                <option value="lose_weight">Lose Weight</option>
-                                                <option value="gain_muscle">Gain Muscle</option>
-                                                <option value="maintain">Maintain</option>
-                                                <option value="improve_health">Improve Health</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="form-label">Activity Level</label>
-                                            <select className="form-input" value={activityLevel} onChange={e => setActivityLevel(e.target.value)}>
-                                                <option value="1.2">Sedentary</option>
-                                                <option value="1.375">Lightly Active</option>
-                                                <option value="1.55">Moderately Active</option>
-                                                <option value="1.725">Very Active</option>
-                                            </select>
-                                        </div>
-                                        <button className="btn btn-primary" onClick={saveHealth}>💾 Save Health Profile</button>
-                                    </div>
-                                </div>
-                            </div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px'}}>
+                        <h1 style={{ fontSize: '3rem', fontWeight: 800, color: '#41281A', margin: 0, letterSpacing: '-1px' }}>
+                            Health <span style={{color: '#FF4500'}}>Command Center</span>
+                        </h1>
+                        <div className="h-hero-badges" style={{display: 'flex', gap: '8px'}}>
+                            <span className="h-badge green" style={{borderRadius: '50px', padding: '6px 16px', fontSize: '0.8rem', fontWeight: 800}}>🔥 {streak} day streak</span>
+                            <span className="h-badge orange" style={{borderRadius: '50px', padding: '6px 16px', fontSize: '0.8rem', fontWeight: 800}}>BMI {bmi}</span>
                         </div>
                     </div>
                 </div>
-            );
-        }
+            </div>
 
-        const root = ReactDOM.createRoot(document.getElementById('react-health-root'));
-        root.render(<HealthApp />);
-    </script>
-    <!-- AI CHATBOT -->
-    <script src="/static/js/ChatWidget.js" type="text/babel"></script>
+            {/* STAT CARDS */}
+            <div className="h-stats-row">
+                {[
+                    { label: 'BMI', value: bmi, sub: bmiCat.label, color: bmiCat.color },
+                    { label: 'TDEE', value: `${tdee}`, sub: 'kcal/day', color: '#FF6B35' },
+                    { label: 'Protein Goal', value: `${proteinTarget}g`, sub: 'per day', color: '#22c55e' },
+                    { label: 'Diabetes Risk', value: diabetesRisk.label, sub: diabetesRisk.label === 'Low' ? '✅ Safe range' : '⚠️ Monitor', color: diabetesRisk.color },
+                    { label: 'Health Streak', value: `${streak}`, sub: 'days active', color: '#a78bfa' },
+                ].map((s, i) => (
+                    <div key={i} className="h-stat-card">
+                        <div className="h-stat-label">{s.label}</div>
+                        <div className="h-stat-value" style={{color: s.color}}>{s.value}</div>
+                        <div className="h-stat-sub">{s.sub}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* TABS */}
+            <div className="h-tabs-wrap">
+                <div className="h-tabs">
+                    {tabs.map(t => (
+                        <button key={t.id} className={`h-tab ${activeTab===t.id?'active':''}`} onClick={() => setActiveTab(t.id)}>
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="h-content">
+                {/* ── OVERVIEW TAB ── */}
+                {activeTab === 'overview' && (
+                    <div className="h-grid-2">
+                        {/* Weekly Health Score */}
+                        <div className="h-card">
+                            <div className="h-card-head">
+                                <h3 className="h-card-title">📊 Weekly Health Score</h3>
+                                <span className="h-card-avg">Avg: {Math.round(HEALTH_SCORES.reduce((a,b)=>a+b,0)/7)}</span>
+                            </div>
+                            <div className="h-chart-wrap" style={{height:'240px'}}>
+                                <canvas ref={weekScoreRef}></canvas>
+                            </div>
+                            <div className="h-legend-row">
+                                <span className="h-legend-dot" style={{background:'#22c55e'}}></span><span>Excellent (75+)</span>
+                                <span className="h-legend-dot" style={{background:'#f59e0b'}}></span><span>Moderate (55+)</span>
+                                <span className="h-legend-dot" style={{background:'#ef4444'}}></span><span>Low</span>
+                            </div>
+                        </div>
+
+                        {/* BMI Gauge */}
+                        <div className="h-card">
+                            <div className="h-card-head">
+                                <h3 className="h-card-title">⚖️ BMI Gauge</h3>
+                            </div>
+                            <div className="bmi-gauge-wrap">
+                                <div className="h-chart-wrap" style={{height:'180px', position:'relative'}}>
+                                    <canvas ref={bmiGaugeRef}></canvas>
+                                    <div className="bmi-center-text">
+                                        <div className="bmi-val" style={{color: bmiCat.color}}>{bmi}</div>
+                                        <div className="bmi-cat">{bmiCat.label}</div>
+                                    </div>
+                                </div>
+                                <div className="bmi-scale-row">
+                                    {['Underweight\n<18.5','Healthy\n18.5–25','Overweight\n25–30','Obese\n>30'].map((l,i) => (
+                                        <div key={i} className="bmi-scale-item">
+                                            <div className="bmi-scale-dot" style={{background:['#3b82f6','#22c55e','#f59e0b','#ef4444'][i]}}></div>
+                                            <div className="bmi-scale-label">{l.split('\n')[0]}</div>
+                                            <div className="bmi-scale-range">{l.split('\n')[1]}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="bmi-inputs">
+                                <div className="h-input-group">
+                                    <label>Height (cm)</label>
+                                    <input type="number" value={profile.height_cm} onChange={e=>setProfile({...profile,height_cm:e.target.value})} />
+                                </div>
+                                <div className="h-input-group">
+                                    <label>Weight (kg)</label>
+                                    <input type="number" value={profile.weight_kg} onChange={e=>setProfile({...profile,weight_kg:e.target.value})} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── MACROS TAB ── */}
+                {activeTab === 'macros' && (
+                    <div className="h-grid-2">
+                        <div className="h-card">
+                            <h3 className="h-card-title" style={{marginBottom:'20px'}}>🍩 Today's Macro Split</h3>
+                            <div className="h-chart-wrap" style={{height:'280px'}}>
+                                <canvas ref={macroDonutRef}></canvas>
+                            </div>
+                        </div>
+                        <div className="h-card">
+                            <h3 className="h-card-title" style={{marginBottom:'24px'}}>📏 Macro Progress Bars</h3>
+                            <div className="macro-bars">
+                                {Object.entries(macros).map(([key, data]) => {
+                                    const pct = Math.min(100, (data.current/data.target*100));
+                                    const colors = {calories:'#FF6B35', protein:'#22c55e', carbs:'#3b82f6', fat:'#f59e0b'};
+                                    const units  = {calories:'kcal', protein:'g', carbs:'g', fat:'g'};
+                                    return (
+                                        <div key={key} className="macro-bar-item">
+                                            <div className="macro-bar-head">
+                                                <span className="macro-bar-name" style={{textTransform:'capitalize'}}>{key}</span>
+                                                <span className="macro-bar-val">{data.current}{units[key]} / {data.target}{units[key]}</span>
+                                            </div>
+                                            <div className="macro-bar-track">
+                                                <div className="macro-bar-fill" style={{width:`${pct}%`, background: colors[key]}}></div>
+                                            </div>
+                                            <div className="macro-bar-pct">{Math.round(pct)}% of goal</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── CALORIES TAB ── */}
+                {activeTab === 'calories' && (
+                    <div className="h-card" style={{maxWidth:'900px', margin:'0 auto'}}>
+                        <div className="h-card-head">
+                            <h3 className="h-card-title">🔥 7-Day Calorie Trend</h3>
+                            <span className="h-card-avg">Target: {tdee} kcal</span>
+                        </div>
+                        <div className="h-chart-wrap" style={{height:'320px'}}>
+                            <canvas ref={calLineRef}></canvas>
+                        </div>
+                        <div className="cal-summary-row">
+                            {[
+                                {label:'Weekly Avg', val: Math.round(CALORIE_DATA.reduce((a,b)=>a+b,0)/7)+'', unit:'kcal'},
+                                {label:'Best Day', val: Math.max(...CALORIE_DATA)+'', unit:'kcal'},
+                                {label:'vs Target', val: (Math.round(CALORIE_DATA.reduce((a,b)=>a+b,0)/7)-tdee>0?'+':'')+(Math.round(CALORIE_DATA.reduce((a,b)=>a+b,0)/7)-tdee), unit:'kcal'},
+                            ].map((s,i) => (
+                                <div key={i} className="cal-summary-card">
+                                    <div className="cal-summary-label">{s.label}</div>
+                                    <div className="cal-summary-val">{s.val} <span>{s.unit}</span></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── PROFILE TAB ── */}
+                {activeTab === 'profile' && (
+                    <div className="h-card profile-card">
+                        <h3 className="h-card-title" style={{marginBottom:'28px'}}>🧬 Health Profile</h3>
+                        <div className="h-profile-grid">
+                            {[
+                                {label:'Age', field:'age', type:'number'},
+                                {label:'Height (cm)', field:'height_cm', type:'number'},
+                                {label:'Weight (kg)', field:'weight_kg', type:'number'},
+                            ].map(f => (
+                                <div key={f.field} className="h-input-group">
+                                    <label>{f.label}</label>
+                                    <input type={f.type} value={profile[f.field]} onChange={e=>setProfile({...profile,[f.field]:e.target.value})} />
+                                </div>
+                            ))}
+                            <div className="h-input-group">
+                                <label>Fitness Goal</label>
+                                <select value={profile.fitness_goal} onChange={e=>setProfile({...profile,fitness_goal:e.target.value})}>
+                                    <option value="lose_weight">Lose Weight</option>
+                                    <option value="gain_muscle">Gain Muscle</option>
+                                    <option value="maintain">Maintain</option>
+                                    <option value="improve_health">Improve Health</option>
+                                </select>
+                            </div>
+                            <div className="h-input-group">
+                                <label>Activity Level</label>
+                                <select value={activity} onChange={e=>setActivity(e.target.value)}>
+                                    <option value="1.2">Sedentary</option>
+                                    <option value="1.375">Lightly Active</option>
+                                    <option value="1.55">Moderately Active</option>
+                                    <option value="1.725">Very Active</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button className="h-save-btn" onClick={saveHealth}>
+                            {saved ? '✅ Saved!' : '💾 Save Health Profile'}
+                        </button>
+                        <div className="h-results-row">
+                            {[
+                                {label:'BMI', val:bmi, color:bmiCat.color, sub:bmiCat.label},
+                                {label:'TDEE', val:tdee+' kcal', color:'#FF6B35', sub:'Daily calories'},
+                                {label:'Protein', val:proteinTarget+'g', color:'#22c55e', sub:'Daily target'},
+                            ].map((r,i)=>(
+                                <div key={i} className="h-result-card">
+                                    <div className="h-result-label">{r.label}</div>
+                                    <div className="h-result-val" style={{color:r.color}}>{r.val}</div>
+                                    <div className="h-result-sub">{r.sub}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('health-root'));
+root.render(<HealthApp />);
+</script>
+<script src="/static/js/ChatWidget.js" type="text/babel"></script>
 </body>
 </html>

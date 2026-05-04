@@ -1,0 +1,220 @@
+
+/* ══════════════════════════════════════
+   DASHBOARD REFINEMENTS
+   (Editorial Grid, Food Cards, Sections)
+══════════════════════════════════════ */
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.section-sm { padding: 60px 0; }
+.section { padding: 100px 0; }
+
+.section-header { margin-bottom: 40px; }
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.section-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--on-surface-dim);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  line-height: 1.2;
+}
+
+.btn-hero {
+  padding: 18px 36px;
+  font-size: 1.1rem;
+  border-radius: 20px;
+}
+
+.btn-emergency {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-emergency.active {
+  background: #ef4444;
+  color: #FFFFFF;
+}
+
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 32px;
+}
+
+.food-card {
+  background: #FFFFFF;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--outline-variant);
+  transition: all 0.4s var(--ease-out);
+}
+
+.food-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  border-color: var(--primary-dim);
+}
+
+.food-card-img {
+  width: 100%;
+  height: 220px;
+  position: relative;
+}
+
+.food-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #000000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  z-index: 2;
+}
+
+.diet-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #FFFFFF;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.diet-indicator.veg { background: #22c55e; }
+.diet-indicator.non-veg { background: #ef4444; }
+
+.food-card-body {
+  padding: 24px;
+}
+
+.food-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.food-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  line-height: 1.2;
+}
+
+.food-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.health-ring-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.health-ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: conic-gradient(var(--score-color) var(--pct), var(--surface-highest) 0deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.health-ring::before {
+  content: '';
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: #FFFFFF;
+  border-radius: 50%;
+}
+
+.health-ring span {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--on-surface);
+}
+
+.health-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--on-surface-dim);
+  letter-spacing: 0.1em;
+}
+
+.health-status {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cost-to-create {
+  margin-left: auto;
+  text-align: right;
+}
+
+.cost-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--on-surface-dim);
+  letter-spacing: 0.1em;
+}
+
+.cost-val {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--on-surface-dim);
+}
+
+.skeleton-card {
+  height: 380px;
+  background: var(--surface-low);
+  border: 1px solid var(--outline-variant);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
